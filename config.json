@@ -1,0 +1,52 @@
+{
+    "tracks": [
+        {
+            "id": "0",
+            "number": 0,
+            "files": [
+                {
+                    "name": "audio/1901_bass.mp3",
+                    "startTimes:": [
+                        {
+                            "minutes": 0,
+                            "seconds": 0
+                        }
+                    ] 
+                },
+                {
+                    "name": "audio/1901_bass.mp3",
+                    "startTimes": [
+                        {
+                            "minutes": 0,
+                            "seconds": 20
+                        }
+                    ] 
+                }
+            ]
+        },
+        {
+            "id": "1",
+            "number": 1,
+            "files": [
+                {
+                    "name": "audio/1901_gtr1.mp3",
+                    "startTimes:": [
+                        {
+                            "minutes": 0,
+                            "seconds": 10
+                        }
+                    ] 
+                },
+                {
+                    "name": "audio/1901_gtr1.mp3",
+                    "startTimes": [
+                        {
+                            "minutes": 0,
+                            "seconds": 30
+                        }
+                    ] 
+                }
+            ]
+        }
+    ]
+}

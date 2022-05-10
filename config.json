@@ -47,6 +47,102 @@
                     ] 
                 }
             ]
+        },
+        {
+            "id": "2",
+            "number": 2,
+            "files": [
+                {
+                    "name": "audio/1901_gtr2.mp3",
+                    "startTimes:": [
+                        {
+                            "minutes": 0,
+                            "seconds": 10
+                        }
+                    ] 
+                },
+                {
+                    "name": "audio/1901_gtr2.mp3",
+                    "startTimes": [
+                        {
+                            "minutes": 0,
+                            "seconds": 30
+                        }
+                    ] 
+                }
+            ]
+        },
+        {
+            "id": "3",
+            "number": 3,
+            "files": [
+                {
+                    "name": "audio/1901_drumsleft.mp3",
+                    "startTimes:": [
+                        {
+                            "minutes": 0,
+                            "seconds": 10
+                        }
+                    ] 
+                },
+                {
+                    "name": "audio/1901_drumsleft.mp3",
+                    "startTimes": [
+                        {
+                            "minutes": 0,
+                            "seconds": 30
+                        }
+                    ] 
+                }
+            ]
+        },
+        {
+            "id": "4",
+            "number": 4,
+            "files": [
+                {
+                    "name": "audio/1901_drumsright.mp3",
+                    "startTimes:": [
+                        {
+                            "minutes": 0,
+                            "seconds": 10
+                        }
+                    ] 
+                },
+                {
+                    "name": "audio/1901_drumsright.mp3",
+                    "startTimes": [
+                        {
+                            "minutes": 0,
+                            "seconds": 30
+                        }
+                    ] 
+                }
+            ]
+        },
+        {
+            "id": "5",
+            "number": 5,
+            "files": [
+                {
+                    "name": "audio/1901_leadvox.mp3",
+                    "startTimes:": [
+                        {
+                            "minutes": 0,
+                            "seconds": 10
+                        }
+                    ] 
+                },
+                {
+                    "name": "audio/1901_leadvox.mp3",
+                    "startTimes": [
+                        {
+                            "minutes": 0,
+                            "seconds": 30
+                        }
+                    ] 
+                }
+            ]
         }
     ]
 }

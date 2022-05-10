@@ -56,7 +56,9 @@ function setupAudioRoutingGraph(trackModel) {
                     numberOfOutputs: numberOfOutputs
                 });
 
-                audioWorkletNode.connect(audioContext.destination);
+                for(let iOutput = 0; iOutput < numberOfOutputs; iOutput++) {
+                    audioWorkletNode.connect(audioContext.destination, iOutput);
+                }
 
                 navigator.mediaDevices.getUserMedia({
                     audio: {

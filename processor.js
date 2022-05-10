@@ -7,7 +7,7 @@ class Processor extends AudioWorkletProcessor {
 
     constructor(options) {
         super(options);
-        this.buffer = new Float32Array(128*options.numberOfOutputs);
+        this.buffer = new Float32Array(128);
         const { audioQueue } = options.processorOptions;
         this._audio_reader = new AudioReader(
             new RingBuffer(audioQueue, Float32Array)
@@ -17,6 +17,8 @@ class Processor extends AudioWorkletProcessor {
     process(inputs, outputs, parameters) {
         // console.log("number of inputs: ", inputs.length);
         // console.log("number input channels: ", inputs[0].length);
+        // console.log("number of outputs: ", outputs.length);
+        // console.log("number output channels: ", outputs[0].length);
 
         this._audio_reader.dequeue(this.buffer);
         for(let iOutput = 0; iOutput < outputs.length; iOutput++) {

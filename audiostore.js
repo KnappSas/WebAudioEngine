@@ -148,7 +148,7 @@ class AudioStore {
      */
 
     constructor(opts = {}) {
-        Object.assign(this, { db: new DB(), duration: 50 });
+        Object.assign(this, { db: new DB(), duration: 10000 });
         console.log("constructor")
         // mobile Safari throws up when saving blobs to indexeddb :(
         this.blobs = !/iP(ad|hone|pd)/.test(navigator.userAgent);
@@ -468,7 +468,7 @@ class AudioStore {
      * @return {Promise}                    – resolves with an AudioBuffer
      */
 
-    async getAudioBuffer(name, offset = 0, duration = 0.05) {
+    async getAudioBuffer(name, offset = 0, duration = 10) {
         const start = offset;
         const end = offset + duration;
         const log = `getting audiobuffer ${name} @ ${start}s-${end}s`;

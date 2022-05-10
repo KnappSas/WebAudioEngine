@@ -5,9 +5,8 @@ const store = new AudioStore(audioContext);
 store.init();
 
 let trackModel = null;
-let decodedFiles = [];
 
-function setupFileReadWorker(sab, trackModel) {
+function setupAudioReader(sab, trackModel) {
     URLFromFiles(['audioreader.js', 'index.js', 'audiostore.js']).then((e) => {
         worker = new Worker(e);
         worker.postMessage({
@@ -33,25 +32,21 @@ function setupAudioRoutingGraph(trackModel) {
                 );
 
                 async function loadAudioFiles() {
+                    let promises = [];
                     for (var iTrack = 0; iTrack < numberOfOutputs; iTrack++) {
                         const track = tracks[iTrack];
                         const numFiles = track.files.length;
                         for (var iFile = 0; iFile < numFiles; iFile++) {
                             const file = track.files[iFile];
-
-                            await loadAudioFile(file, (buffer) => {
-                                store.saveAudioBuffer(file.name, buffer).then(metadata => {
-                                    duration = metadata.duration;
-                                    console.log("finished");
-                                });
-                            });
+                            promises.push(loadAudioFile(file));
                         }
                     }
+
+                    await Promise.all(promises);
                 }
 
                 loadAudioFiles().then(() => {
-                    
-                    //setupFileReadWorker(sab, trackModel);
+                    setupAudioReader(sab, trackModel);
                 });
 
                 const audioWorkletNode = new AudioWorkletNode(audioContext, "processor", {
@@ -80,36 +75,31 @@ function setupAudioRoutingGraph(trackModel) {
     });
 }
 
-function loadAudioFile(file, cb) {
-    var request = new XMLHttpRequest();
-    request.open('GET', file.name, true);
-    request.responseType = 'arraybuffer';
-    request.onload = function () {
-        var audioData = request.response;
-        audioContext.decodeAudioData(audioData, function (buffer) {
-            cb(buffer);
-        },
+async function loadAudioFile(file) {
+    return new Promise((resolve, reject) => {
+        var request = new XMLHttpRequest();
+        request.open('GET', file.name, true);
+        request.responseType = 'arraybuffer';
+        request.onload = () => {
+            var audioData = request.response;
+            audioContext.decodeAudioData(audioData, function (buffer) {
+                store.saveAudioBuffer(file.name, buffer).then(metadata => {
+                    duration = metadata.duration;
+                    resolve();
+                }); 
+            },
+    
+            e => { console.log("Error with decoding audio data" + e.err); 
+            reject() });
+        }
 
-            function (e) { console.log("Error with decoding audio data" + e.err); });
-    }
-
-    request.send();
+        request.onerror = reject;
+        request.send();
+    });
 }
 
 function loadTrackConfig(jsonObj) {
     trackModel = jsonObj;
-
-    // function loadFilesConfig(track) {
-    //     const files = track.files;
-    //     for (var i = 0; i < tracks.length; i++) {
-    //         console.log(files[i].name);
-    //     }
-    // }
-
-    // for (var i = 0; i < tracks.length; i++) {
-    //     console.log(tracks[i].id);
-    //     loadFilesConfig(tracks[i]);
-    // }
 }
 
 const request = new XMLHttpRequest();

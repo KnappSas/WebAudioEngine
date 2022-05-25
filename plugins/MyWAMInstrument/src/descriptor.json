@@ -1,0 +1,13 @@
+{
+    "name": "MyWAMInstrument",
+    "vendor": "WebAudioModule",
+    "description": "Simple example using WebAudioModule, WamNode, and WamProcessor classes.",
+    "version": "1.0.0",
+    "apiVersion": "2.0.0",
+    "keywords": [],
+    "website": "",
+    "isInstrument": true,
+	"hasMidiInput": true,
+    "hasAudioInput": true,
+	"hasAudioOutput": true
+}

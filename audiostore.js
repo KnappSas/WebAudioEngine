@@ -1,3 +1,8 @@
+'use strict';
+
+console.log = () => {};
+console.info = () => {};
+
 class AudioBuffer {
     constructor(numberOfChannels, length, sampleRate) {
         this.channelData = [];
@@ -148,7 +153,7 @@ class AudioStore {
      */
 
     constructor(opts = {}) {
-        Object.assign(this, { db: new DB(), duration: 5 });
+        Object.assign(this, { db: new DB(), duration: 1 });
         console.log("constructor")
         // mobile Safari throws up when saving blobs to indexeddb :(
         this.blobs = !/iP(ad|hone|pd)/.test(navigator.userAgent);
@@ -481,7 +486,7 @@ class AudioStore {
      * @return {Promise}                    – resolves with an AudioBuffer
      */
 
-    async getAudioBuffer(name, offset = 0, duration = 100) {
+    async getAudioBuffer(name, offset = 0, duration = 1) {
         const start = offset;
         const end = offset + duration;
         const log = `getting audiobuffer ${name} @ ${start}s-${end}s`;

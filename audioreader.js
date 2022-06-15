@@ -2,14 +2,51 @@ const exports = {};
 
 let audioWriter = null;
 let trackModel = null;
-let store = null;
 let currentBuffers = null;
+let nextBuffers = null;
 let fileReadPos = 0;
 let chunk = null;
-let nextChunk = null;
 let numberOfOutputs = 0;
 
+const sampleRate = 44100;
 const samplesPerTrack = 128;
+
+let duration = 1;
+let nextTransportSeconds = 0;
+
+let rest = 0;
+
+const nWorkers = 2;
+let workers = [];
+
+let numChunks = 0;
+let chunkSize = 0;
+
+let sabSize = 0;
+
+let chunkIndex = 0;
+
+let bufferOffset = 0;
+
+let nextTimeSliceIndex = 0;
+
+function fillSharedMemory() {
+    if (!audioWriter)
+        return;
+
+    while (audioWriter.available_write() > chunk.length) {
+        audioWriter.enqueue(currentBuffers.slice(chunkIndex + bufferOffset, chunkIndex + bufferOffset + chunkSize));
+        chunkIndex += chunkSize;
+
+        if (chunkIndex >= nextTimeSliceIndex) {
+            bufferOffset = bufferOffset > 0 ? 0 : nextTimeSliceIndex;
+            chunkIndex = 0;
+            Promise.all(preloadBuffers(nextTransportSeconds, numberOfOutputs, nWorkers)).then(() => {
+                nextTransportSeconds += duration;
+            });
+        }
+    }
+}
 
 onmessage = e => {
     switch (e.data.command) {
@@ -22,55 +59,94 @@ onmessage = e => {
             store = new AudioStore();
 
             store.init().then(async () => {
-                let promises = [];
-                for (let iTrack = 0; iTrack < numberOfOutputs; iTrack++) {
-                    const track = trackModel.tracks[iTrack];
-                    const fileName = track.files[0].name;
+                let numChunksPerTrackInTimeSlice = (sampleRate % samplesPerTrack) > 0 ? Math.floor(sampleRate / samplesPerTrack + 1) : sampleRate / samplesPerTrack;
+                chunkSize = 128 * numberOfOutputs;
 
-                    promises.push(store.getAudioBuffer(fileName));
+                // *2 for next time slice portion in buffer, see needSwitch
+                sabSize = chunkSize * numChunksPerTrackInTimeSlice * duration * 2;
+                nextTimeSliceIndex = sabSize / 2;
+                let capacity = sabSize * Float32Array.BYTES_PER_ELEMENT;
+                const sab = new SharedArrayBuffer(capacity);
+                currentBuffers = new Float32Array(sab, 0, sab.byteLength / Float32Array.BYTES_PER_ELEMENT);
+                let workerPromises = [];
+                for (let i = 0; i < nWorkers; i++) {
+                    let readerWorker = new Worker(e.data.workerURL);
+
+                    let p = new Promise((resolve, reject) => {
+                        readerWorker.onmessage = e => {
+                            switch (e.data.command) {
+                                case "ready": {
+                                    resolve();
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    workerPromises.push(p);
+
+                    readerWorker.postMessage({ command: "init", sab: sab, numberOfOutputs: numberOfOutputs, trackModel: trackModel });
+                    workers.push(readerWorker);
                 }
 
-                currentBuffers = await Promise.all(promises);
-                console.log(currentBuffers);
+                await Promise.all(workerPromises);
+                await Promise.all(preloadBuffers(0, numberOfOutputs, nWorkers));
+                await Promise.all(preloadBuffers(1, numberOfOutputs, nWorkers));
+                nextTransportSeconds = 2 * duration;
 
                 const timeout = () => {
-                    if (!audioWriter) {
-                        return;
-                    }
-
-                    while (audioWriter.available_write() > chunk.length) {
-                        let offset = 0;
-                        for (let iTrack = 0; iTrack < numberOfOutputs; iTrack++) {
-                            const channel_data = currentBuffers[iTrack].getChannelData(0);
-                            let tmpFileReadPos = fileReadPos;
-                            for (let i = 0; i < samplesPerTrack; i++) {
-                                let chunkIndex = i + offset;
-                                if (tmpFileReadPos < channel_data.length) {
-                                    chunk[chunkIndex] = channel_data[tmpFileReadPos];
-                                } else {
-                                    chunk[chunkIndex] = 0.0;
-                                }
-    
-                                tmpFileReadPos++;
-                            }
-
-                            offset += samplesPerTrack;
-                        }
-
-                        fileReadPos += samplesPerTrack;
-                        audioWriter.enqueue(chunk);
-                    }
-
+                    fillSharedMemory();
                     setTimeout(timeout, 10);
                 }
 
                 timeout();
+                setTimeout(() => { postMessage({ command: "ready" }); }, 5000);
             });
 
             break;
         }
+        case "preload debug":
+            preloadDebug();
+            break;
         default: {
             throw Error("Unknown case in file_read.js");
         }
     }
+}
+
+async function preloadDebug() {
+    await Promise.all(preloadBuffers(0, numberOfOutputs, nWorkers));
+    await Promise.all(preloadBuffers(1, numberOfOutputs, nWorkers));
+    nextTransportSeconds = 2 * duration;
+}
+
+function preloadBuffers(nextTransportSeconds, nTracks, nWorkers) {
+    console.log("preload buffers");
+    const nTracksPerWorker = nTracks / nWorkers;
+
+    let promises = [];
+    for (let i = 0; i < workers.length; i++) {
+        let p = new Promise((resolve, reject) => {
+            workers[i].onmessage = e => {
+                switch (e.data.command) {
+                    case "preloadDone": {
+                        resolve();
+                        break;
+                    }
+                }
+            }
+
+            workers[i].postMessage({
+                command: "preloadBuffer",
+                iTrackStart: i * nTracksPerWorker,
+                iTrackEnd: (i + 1) * nTracksPerWorker,
+                startTime: nextTransportSeconds,
+                duration: duration
+            });
+        });
+
+        promises.push(p);
+    }
+
+    return promises;
 }

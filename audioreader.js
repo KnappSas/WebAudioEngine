@@ -11,12 +11,12 @@ let numberOfOutputs = 0;
 const sampleRate = 44100;
 const samplesPerTrack = 128;
 
-let duration = 1;
+let duration = 44160;
 let nextTransportSeconds = 0;
 
 let rest = 0;
 
-const nWorkers = 2;
+const nWorkers = 10;
 let workers = [];
 
 let numChunks = 0;
@@ -63,7 +63,7 @@ onmessage = e => {
                 chunkSize = 128 * numberOfOutputs;
 
                 // *2 for next time slice portion in buffer, see needSwitch
-                sabSize = chunkSize * numChunksPerTrackInTimeSlice * duration * 2;
+                sabSize = chunkSize * numChunksPerTrackInTimeSlice * 2;
                 nextTimeSliceIndex = sabSize / 2;
                 let capacity = sabSize * Float32Array.BYTES_PER_ELEMENT;
                 const sab = new SharedArrayBuffer(capacity);
@@ -91,7 +91,7 @@ onmessage = e => {
 
                 await Promise.all(workerPromises);
                 await Promise.all(preloadBuffers(0, numberOfOutputs, nWorkers));
-                await Promise.all(preloadBuffers(1, numberOfOutputs, nWorkers));
+                await Promise.all(preloadBuffers(duration, numberOfOutputs, nWorkers));
                 nextTransportSeconds = 2 * duration;
 
                 const timeout = () => {
@@ -115,19 +115,22 @@ onmessage = e => {
 }
 
 async function preloadDebug() {
-    await Promise.all(preloadBuffers(0, numberOfOutputs, nWorkers));
-    await Promise.all(preloadBuffers(1, numberOfOutputs, nWorkers));
-    nextTransportSeconds = 2 * duration;
+    await Promise.all(preloadBuffers(nextTransportSeconds, numberOfOutputs, nWorkers));
+    nextTransportSeconds+=duration;
 }
 
 function preloadBuffers(nextTransportSeconds, nTracks, nWorkers) {
     console.log("preload buffers");
-    const nTracksPerWorker = nTracks / nWorkers;
+    let tracksPerWorker = Math.floor(nTracks / nWorkers);
+    let rest = nTracks - tracksPerWorker*nWorkers;
+
+    console.log("tracksPerWorker: ", tracksPerWorker, "rest: ", rest);
 
     let promises = [];
-    for (let i = 0; i < workers.length; i++) {
+
+    let setupAudioReaderWorker = (iWorker, nTracksPerWorker) => {
         let p = new Promise((resolve, reject) => {
-            workers[i].onmessage = e => {
+            workers[iWorker].onmessage = e => {
                 switch (e.data.command) {
                     case "preloadDone": {
                         resolve();
@@ -135,17 +138,25 @@ function preloadBuffers(nextTransportSeconds, nTracks, nWorkers) {
                     }
                 }
             }
-
-            workers[i].postMessage({
+    
+            workers[iWorker].postMessage({
                 command: "preloadBuffer",
-                iTrackStart: i * nTracksPerWorker,
-                iTrackEnd: (i + 1) * nTracksPerWorker,
+                iTrackStart: iWorker * nTracksPerWorker,
+                iTrackEnd: (iWorker + 1) * nTracksPerWorker,
                 startTime: nextTransportSeconds,
                 duration: duration
             });
         });
+    }
 
-        promises.push(p);
+    const numFullWorkers = rest > 0 ? workers.length-1 : workers.length;
+    for (let iWorker = 0; iWorker < numFullWorkers; iWorker++) {
+        promises.push(setupAudioReaderWorker(iWorker, tracksPerWorker));
+    }
+
+    if(rest > 0) {
+        let lastWorkerIndex = workers.length - 1;
+        promises.push(setupAudioReaderWorker(lastWorkerIndex, rest));
     }
 
     return promises;

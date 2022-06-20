@@ -3,136 +3,118 @@
         {
             "id": "0",
             "number": 0,
-            "files": [
+            "lastClipIndex": 0,
+            "clips": [
                 {
-                    "name": "audio/1901_bass.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 0
-                        }
-                    ] 
-                }
-            ]
-        },
-        {
-            "id": "1",
-            "number": 1,
-            "files": [
-                {
-                    "name": "audio/1901_gtr1.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 10
-                        }
-                    ] 
-                }
-            ]
-        },
-        {
-            "id": "2",
-            "number": 2,
-            "files": [
-                {
-                    "name": "audio/1901_gtr2.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 10
-                        }
-                    ] 
-                }
-            ]
-        },
-        {
-            "id": "3",
-            "number": 3,
-            "files": [
-                {
-                    "name": "audio/1901_drumsleft.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 10
-                        }
-                    ] 
-                }
-            ]
-        },
-        {
-            "id": "4",
-            "number": 4,
-            "files": [
-                {
-                    "name": "audio/1901_drumsright.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 10
-                        }
-                    ] 
-                }
-            ]
-        },
-        {
-            "id": "5",
-            "number": 5,
-            "files": [
-                {
-                    "name": "audio/1901_leadvox.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 10
-                        }
-                    ] 
-                }
-            ]
-        },
-        {
-            "id": "6",
-            "number": 6,
-            "files": [
-                {
-                    "name": "audio/1901_keys.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 10
-                        }
-                    ] 
-                }
-            ]
-        },
-        {
-            "id": "7",
-            "number": 7,
-            "files": [
-                {
-                    "name": "audio/1901_synth1.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 10
-                        }
-                    ] 
-                }
-            ]
-        },
-        {
-            "id": "8",
-            "number": 8,
-            "files": [
-                {
-                    "name": "audio/1901_synth2.mp3",
-                    "startTimes:": [
-                        {
-                            "minutes": 0,
-                            "seconds": 10
-                        }
-                    ] 
-                }
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 0,
+                    "length": 44161,
+                    "iStartInFile": 0,
+                    "iEndInFile": 44160
+                    },
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 44161,
+                    "length": 44161,
+                    "iStartInFile": 44161,
+                    "iEndInFile": 88321
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 88322,
+                    "length": 44161,
+                    "iStartInFile": 88322,
+                    "iEndInFile": 132482
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 132483,
+                    "length": 44161,
+                    "iStartInFile": 132483,
+                    "iEndInFile": 176643
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 176644,
+                    "length": 44161,
+                    "iStartInFile": 176644,
+                    "iEndInFile": 220804
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 220805,
+                    "length": 44161,
+                    "iStartInFile": 220805,
+                    "iEndInFile": 264965
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 264966,
+                    "length": 44161,
+                    "iStartInFile": 264966,
+                    "iEndInFile": 309126
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 309127,
+                    "length": 44161,
+                    "iStartInFile": 309127,
+                    "iEndInFile": 353287
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 353288,
+                    "length": 44161,
+                    "iStartInFile": 353288,
+                    "iEndInFile": 397448
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 397449,
+                    "length": 44161,
+                    "iStartInFile": 397449,
+                    "iEndInFile": 441609
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 441610,
+                    "length": 44161,
+                    "iStartInFile": 441610,
+                    "iEndInFile": 485770
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 485771,
+                    "length": 44161,
+                    "iStartInFile": 485771,
+                    "iEndInFile": 529931
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 529932,
+                    "length": 44161,
+                    "iStartInFile": 529932,
+                    "iEndInFile": 574092
+                    },
+                    
+                    {
+                    "fileName": "audio/sweep.wav",
+                    "samplePos": 574093,
+                    "length": 9305100,
+                    "iStartInFile": 574093,
+                    "iEndInFile": 9305100
+                    }
             ]
         }
     ]

@@ -1,8 +1,5 @@
 'use strict';
 
-console.log = () => {};
-console.info = () => {};
-
 class AudioBuffer {
     constructor(numberOfChannels, length, sampleRate) {
         this.channelData = [];
@@ -51,7 +48,7 @@ class DB {
             req.onsuccess = ev => {
                 if (exists) {
                     const log = `database ${this.name} v${this.version} exists`;
-                    console.info(log);
+                    // console.info(log);
                     this.db = ev.target.result;
                     resolve(this);
                 }
@@ -64,7 +61,7 @@ class DB {
                     exists = false;
                     this.#createStores(this.db).then(() => {
                         const log = `database ${this.name} v${this.version} created`;
-                        console.info(log);
+                        // console.info(log);
                         resolve(this);
                     });
                 }
@@ -154,7 +151,7 @@ class AudioStore {
 
     constructor(opts = {}) {
         Object.assign(this, { db: new DB(), duration: 1 });
-        console.log("constructor")
+        // console.log("constructor")
         // mobile Safari throws up when saving blobs to indexeddb :(
         this.blobs = !/iP(ad|hone|pd)/.test(navigator.userAgent);
 
@@ -185,7 +182,7 @@ class AudioStore {
      */
 
     async #getChunk(name, seconds) {
-        console.log("seconds: ", seconds);
+        // console.log("seconds: ", seconds);
 
         if (seconds % this.duration !== 0) {
             const msg = `${seconds} is not divisible by ${this.duration}`;
@@ -343,18 +340,18 @@ class AudioStore {
      */
 
     #mergeChunks(chunks, metadata, start, end) {
-        console.log(chunks);
+        // console.log(chunks);
         const merged = [];
         const length = chunks.reduce((a, b) => a + b.length, 0);
         const samples = end - start;
         const rate = metadata.rate;
 
-        console.log("length: ", length);
+        // console.log("length: ", length);
         for (let i = 0; i < metadata.channels; ++i) {
-            merged[i] = new Float32Array(samples);
+            merged[i] = new Float32Array(chunks.length*rate*this.duration);
         }
 
-        console.log("chunks: ", chunks);
+        // console.log("chunks: ", chunks);
         for (let i = 0, index = 0; i < chunks.length; ++i) {
             merged.forEach((channel, j) => {
                 merged[j].set(chunks[i].channels[j], index);
@@ -362,10 +359,10 @@ class AudioStore {
             index += chunks[i].length;
         }
 
-        console.log("merged: ", merged);
+        // console.log("merged: ", merged);
 
         const channels = merged.map(f32 => f32.subarray(start, end));
-        console.log("channels: ", channels);
+        // console.log("channels: ", channels);
         const ab = new AudioBuffer(channels.length, samples, rate);
         channels.forEach((f32, i) => {
             ab.getChannelData(i).set(f32);
@@ -375,7 +372,7 @@ class AudioStore {
             //  }
         });
 
-        console.log("ab: ", ab);
+        // console.log("ab: ", ab);
 
         return ab;
     }
@@ -458,7 +455,7 @@ class AudioStore {
      */
 
     async saveAudioBuffer(name, ab) {
-        console.info(`saving audiobuffer ${name}`);
+        // console.info(`saving audiobuffer ${name}`);
 
         const chunks = this.#audioBufferToRecords(name, ab);
         const metadata = this.#audioBufferToMetadata(name, ab);
@@ -466,10 +463,69 @@ class AudioStore {
         await this.#saveChunks(chunks);
         await this.#saveMetadata(metadata);
 
-        console.info(`saved audiobuffer ${name}`);
+        // console.info(`saved audiobuffer ${name}`);
 
         return metadata;
     }
+
+    // /**
+    //  * get an AudioBuffer for the given track name
+    //  *
+    //  * this method will automatically stitch together multiple chunks
+    //  * if necessary, we well as perform any trimming needed for
+    //  * `offset` and `duration`.
+    //  *
+    //  * @method getAudioBuffer
+    //  *
+    //  * @param  {String}       name          – track name
+    //  * @param  {Number}       [offset=0]    – offset in seconds
+    //  * @param  {Number}       [duration=10] – duration in seconds
+    //  * @return {Promise}                    – resolves with an AudioBuffer
+    //  */
+
+    //  async getAudioBufferFromSamplePos(name, offsetSamples = 0, numSamples = 1) {
+    //     let offset = offsetSamples * this.rate;
+    //     let duration = numSamples * this.rate;
+
+    //     const start = offset;
+    //     const end = offset + duration;
+    //     const log = `getting audiobuffer ${name} @ ${start}s-${end}s`;
+
+    //     // console.info(log);
+
+    //     const metadata = await this.getMetadata(name);
+
+    //     if (offset + duration > metadata.duration) {
+    //         const msg = `${end} is beyond track duration ${metadata.duration}`;
+    //         throw new Error(msg);
+    //     }
+
+    //     const rate = metadata.rate;
+    //     const seconds = Math.floor(offset / this.duration) * this.duration;
+    //     const samples = Math.ceil(duration * rate);
+    //     const promises = [];
+
+    //     offset -= seconds;
+
+    //     const first = Math.floor(offset * rate);
+    //     const last = first + samples;
+
+    //     let sec = seconds;
+
+    //     while (sec - offset < seconds + duration) {
+    //         promises.push(this.#getChunk(name, sec));
+    //         sec += this.duration;
+    //     }
+
+    //     const chunks = await Promise.all(promises);
+    //     // console.log("chnks:", chunks);
+    //     const ab = this.#mergeChunks(chunks, metadata, first, last);
+    //     const msg = `got audiobuffer ${name} @ ${start}s-${end}s`;
+
+    //     // console.info(msg);
+
+    //     return ab;
+    // }
 
     /**
      * get an AudioBuffer for the given track name
@@ -491,7 +547,7 @@ class AudioStore {
         const end = offset + duration;
         const log = `getting audiobuffer ${name} @ ${start}s-${end}s`;
 
-        console.info(log);
+        // console.info(log);
 
         const metadata = await this.getMetadata(name);
 
@@ -518,11 +574,11 @@ class AudioStore {
         }
 
         const chunks = await Promise.all(promises);
-        console.log("chnks:", chunks);
+        // console.log("chnks:", chunks);
         const ab = this.#mergeChunks(chunks, metadata, first, last);
         const msg = `got audiobuffer ${name} @ ${start}s-${end}s`;
 
-        console.info(msg);
+        // console.info(msg);
 
         return ab;
     }

@@ -12,15 +12,52 @@
     <div>
         <section>
             <h4 style="margin-bottom: 5px; color: #888">Number of Tracks</h4>
-            <button id="1-button" onclick="changeNumTracks(1)">1</button>
-            <button id="2-button" onclick="changeNumTracks(2)">2</button>
-            <button id="9-button" onclick="changeNumTracks(9)">9</button>
-            <button id="10-button" onclick="changeNumTracks(10)">10</button>
-            <button id="100-button" onclick="changeNumTracks(100)">100</button>
-            <button id="250-button" onclick="changeNumTracks(250)">250</button>
-            <button id="1000-button" onclick="changeNumTracks(1000)">1000</button>
-            <button id="band-button" onclick="loadTrackConfig('config.json')">Band</button>
-            <button id="debug-button" onclick="debug()">Debug</button>
+            <p style="font-size: 0.7em; color: #999">Select either the number of tracks that are created for streaming a
+                test signal from IndexedDB
+                or select 'Band' to playback actual stems from a band.
+                </a></p>
+            <button id="track-1" onclick="changeNumTracks(1)">1</button>
+            <button id="track-2" onclick="changeNumTracks(2)">2</button>
+            <button id="track-9" onclick="changeNumTracks(9)">9</button>
+            <button id="track-10" onclick="changeNumTracks(10)">10</button>
+            <button id="track-100" onclick="changeNumTracks(100)">100</button>
+            <button id="track-250" onclick="changeNumTracks(250)">250</button>
+            <button id="track-1000" onclick="changeNumTracks(1000)">1000</button>
+            <button id="track-band" onclick="loadTrackConfig('config.json')">Band</button>
+            <!-- <button id="debug" onclick="debug()">Debug</button> -->
+        </section>
+        <section>
+            <h4 style="margin-bottom: 5px; color: #888">Audio processing language</h4>
+            <p style="font-size: 0.7em; color: #999">Select which language is used
+                for the load generation.
+                </a></p>
+            <div>
+                <input type="radio" id="choice-js" name="lang" value="js" onchange="changeProcessingLanguage('js')" />
+                <label style="font-size: 0.8em;" for="choice-js">JavaScript</label>
+            </div>
+            <div>
+                <input type="radio" id="choice-wasm" name="lang" value="wasm"
+                    onchange="changeProcessingLanguage('wasm')" />
+                <label style="font-size: 0.8em;" for="choice-wasm">WebAssembly (faster)</label>
+            </div>
+        </section>
+        <section>
+            <h4 style="margin-bottom: 5px; color: #888">Parameters</h4>
+            <p style="font-size: 0.7em; color: #999">...</a></p>
+            <div style="display: flex;flex-flow: row;align-items: center;">
+                <input type="range" id="load-slider" min="0" max="50" step="1.0" value="1"
+                    onchange="changeProcessingLoad()" />
+                <label id="load-slider-label" style="font-size: 0.8em;text-align: center;" for="load-slider"></label>
+            </div>
+            <h4 style="margin-bottom: 5px; color: #888">Presets</h4>
+            <p style="font-size: 0.7em; color: #999">...</a></p>
+            <div>
+                <button id="load-0" onclick="changeProcessingLoad(0)">0</button>
+                <button id="load-1" onclick="changeProcessingLoad(1)">1</button>
+                <button id="load-10" onclick="changeProcessingLoad(10)">10</button>
+                <button id="load-25" onclick="changeProcessingLoad(25)">25</button>
+                <button id="load-50" onclick="changeProcessingLoad(50)">50</button>
+            </div>
         </section>
         <script>
             exports = {};
@@ -40,7 +77,8 @@
             document.getElementById("startBtn").disabled = true;
 
             let worker = null;
-        
+            let loadGenerator = null;
+
             function setupAudioReader(sab, trackModel) {
                 URLFromFiles(['audioreader.js', 'index.js', 'audiostore.js']).then((e) => {
                     worker = new Worker(e);
@@ -69,66 +107,93 @@
                 });
             }
 
-            function setupAudioRoutingGraph(trackModel) {
-                URLFromFiles(["processor.js", "index.js"]).then((e) => {
+            async function createLoadGeneratorNode(input, iOutput, output) {
+                const processorPath = window.language === "js" ? "load-processor.js" : "load-processor-wasm.js";
+                const processorName = window.language === "js" ? "load-processor-js" : "load-processor-wasm";
+
+                await audioContext.audioWorklet.addModule(processorPath);
+
+                audioWorkletNode = new AudioWorkletNode(audioContext, processorName);
+                audioWorkletNode.port.onmessage = (event) => onmessage(event.data);
+                audioWorkletNode.connect(audioContext.destination);
+
+                if (window.language === "wasm") {
+                    fetch("load-wasm/target/wasm32-unknown-unknown/release/load_wasm.wasm")
+                        .then(r => r.arrayBuffer())
+                        .then(r => audioWorkletNode.port.postMessage({ type: 'load-wasm-module', data: r }));
+                }
+
+                input
+                    .connect(audioWorkletNode, iOutput)
+                    .connect(output);
+
+                return audioWorkletNode;
+            }
+
+            async function setupAudioRoutingGraph(trackModel) {
+                URLFromFiles(["wave-processor.js", "index.js"]).then(async (e) => {
                     if (audioContext.audioWorklet === undefined) {
                         log("No AudioWorklet.");
                     } else {
-                        audioContext.audioWorklet.addModule(e).then(() => {
-                            const tracks = trackModel.tracks;
-                            const numberOfOutputs = tracks.length;
-                            // 50ms of buffer, increase in case of glitches
-                            const sab = exports.RingBuffer.getStorageForCapacity(
-                                (audioContext.sampleRate / 20) * numberOfOutputs,
-                                Float32Array
-                            );
+                        await audioContext.audioWorklet.addModule(e);
 
-                            async function loadAudioFiles() {
-                                let promises = [];
-                                for (var iTrack = 0; iTrack < numberOfOutputs; iTrack++) {
-                                    const track = tracks[iTrack];
-                                    const numClips = track.clips.length;
-                                    for (var iClip = 0; iClip < numClips; iClip++) {
-                                        const clip = track.clips[iClip];
-                                        promises.push(loadAudioFile(clip));
-                                    }
+                        const tracks = trackModel.tracks;
+                        const numberOfOutputs = tracks.length;
+                        // 50ms of buffer, increase in case of glitches
+                        const sab = exports.RingBuffer.getStorageForCapacity(
+                            (audioContext.sampleRate / 20) * numberOfOutputs,
+                            Float32Array
+                        );
+
+                        async function loadAudioFiles() {
+                            let promises = [];
+                            for (var iTrack = 0; iTrack < numberOfOutputs; iTrack++) {
+                                const track = tracks[iTrack];
+                                const numClips = track.clips.length;
+                                for (var iClip = 0; iClip < numClips; iClip++) {
+                                    const clip = track.clips[iClip];
+                                    promises.push(loadAudioFile(clip));
                                 }
-
-                                await Promise.all(promises);
                             }
 
-                            loadAudioFiles().then(() => {
-                                console.log("setup reader");
-                                setupAudioReader(sab, trackModel);
-                            });
+                            await Promise.all(promises);
+                        }
 
-                            const audioWorkletNode = new AudioWorkletNode(audioContext, "processor", {
-                                processorOptions: {
-                                    audioQueue: sab,
-                                },
-                                numberOfOutputs: numberOfOutputs
-                            });
-
-                            for (let iOutput = 0; iOutput < numberOfOutputs; iOutput++) {
-                                let gain = audioContext.createGain();
-                                gain.gain.value = 1/numberOfOutputs;
-                                audioWorkletNode.connect(gain, iOutput);
-                                gain.connect(audioContext.destination);
-                            }
-
-                            // navigator.mediaDevices.getUserMedia({
-                            //     audio: {
-                            //         // echoCancellation: false,
-                            //         autoGainControl: false,
-                            //         noiseSuppression: false,
-                            //         latency: 0
-                            //     }
-                            // }).then(userMedia => {
-                            //     const input = audioContext.createMediaStreamSource(userMedia);
-                            //     input.connect(audioWorkletNode);
-                            // }
-                            // )
+                        loadAudioFiles().then(() => {
+                            console.log("setup reader");
+                            setupAudioReader(sab, trackModel);
                         });
+
+                        const audioWorkletNode = new AudioWorkletNode(audioContext, "wave-processor", {
+                            processorOptions: {
+                                audioQueue: sab,
+                            },
+                            numberOfOutputs: numberOfOutputs
+                        });
+
+                        let masterGain = audioContext.createGain();
+                        for (let iOutput = 0; iOutput < numberOfOutputs; iOutput++) {
+                            let gain = audioContext.createGain();
+                            gain.gain.value = 1 / numberOfOutputs;
+                            audioWorkletNode.connect(gain, iOutput);
+                            gain.connect(masterGain);
+                        }
+
+                        loadGenerator = await createLoadGeneratorNode(masterGain, 0, audioContext.destination);
+                        let loadParam = loadGenerator.parameters.get("load");
+                        loadParam.value = 10;
+                        // navigator.mediaDevices.getUserMedia({
+                        //     audio: {
+                        //         // echoCancellation: false,
+                        //         autoGainControl: false,
+                        //         noiseSuppression: false,
+                        //         latency: 0
+                        //     }
+                        // }).then(userMedia => {
+                        //     const input = audioContext.createMediaStreamSource(userMedia);
+                        //     input.connect(audioWorkletNode);
+                        // }
+                        // )
                     }
                 });
             }
@@ -173,7 +238,7 @@
                     const trackModel = JSON.parse(request.responseText);
                     setupAudioRoutingGraph(trackModel);
                 }
-    
+
                 request.send();
             }
 
@@ -220,9 +285,46 @@
                 setupAudioRoutingGraph(trackModel);
             }
 
-            function debug() {
-                worker.postMessage({command: "preload debug"});
+            function changeProcessingLanguage(language) {
+                window.language = language;
+                const newUrl = `${window.location.origin}${window.location.pathname}?strings=${window.numStrings}&visualize=${window.visualize}&channel=${window.channel}&ratio=${window.ratio}&lang=${window.language}`;
+                window.location.href = newUrl;
             }
+
+            function changeProcessingLoad(newLoad = -1) {
+                if (newLoad < 0) {
+                    console.log("changeProcessingLoad")
+                    let load = 0;
+                    if (loadGenerator) {
+                        let loadParam = loadGenerator.parameters.get("load");
+                        load = document.getElementById("load-slider").value;
+                        loadParam.value = load < 1 ? 0.001 : Math.floor(load);
+                    }
+
+                    document.getElementById("load-slider-label").innerHTML = `Load: ${load}`;
+                } else {
+                    // in this case changeProcessingLoad was set with an explicit value
+                    document.getElementById("load-slider").value = newLoad;
+                    changeProcessingLoad();
+                }
+            }
+
+            function debug() {
+                worker.postMessage({ command: "preload debug" });
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const lang = urlParams.get('lang') === "js"
+                ? "js"
+                : "wasm"
+
+            window.language = lang;
+            switch (lang) {
+                case "wasm": document.getElementById("choice-wasm").checked = true; break;
+                case "js": document.getElementById("choice-js").checked = true; break;
+            }
+
+            document.getElementById("load-slider-label").innerHTML = "Load: 0";
         </script>
 </body>
 

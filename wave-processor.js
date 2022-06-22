@@ -1,6 +1,6 @@
 const exports = {};
 
-class Processor extends AudioWorkletProcessor {
+class WaveProcessor extends AudioWorkletProcessor {
     static get parameterDescriptors() {
         return [];
     }
@@ -15,11 +15,6 @@ class Processor extends AudioWorkletProcessor {
     }
 
     process(inputs, outputs, parameters) {
-        // console.log("number of inputs: ", inputs.length);
-        // console.log("number input channels: ", inputs[0].length);
-        // console.log("number of outputs: ", outputs.length);
-        // console.log("number output channels: ", outputs[0].length);
-
         this._audio_reader.dequeue(this.buffer);
         for(let iOutput = 0; iOutput < outputs.length; iOutput++) {
             for(let iChannel = 0; iChannel < outputs[iOutput].length; iChannel++) {
@@ -34,4 +29,4 @@ class Processor extends AudioWorkletProcessor {
     }
 }
 
-registerProcessor("processor", Processor);
+registerProcessor("wave-processor", WaveProcessor);

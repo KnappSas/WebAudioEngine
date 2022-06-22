@@ -1,6 +1,8 @@
 // based on https://github.com/padenot/fx-profiler-audio-cb
 
 var m = window.filteredMarkers;
+if(m.length <= 0) return false;
+
 var budgets = new Float32Array(m.length);
 var idx_budgets = 0;
 var callbacks = new Float32Array(m.length);
@@ -49,3 +51,5 @@ for (var i = 0; i < callback_count; i++) {
 
 console.log("csv: ", csv);
 downloadBlob(csv, 'export.csv', 'text/csv;charset=utf-8;')
+
+return true;

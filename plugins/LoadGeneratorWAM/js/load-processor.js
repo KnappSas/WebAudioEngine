@@ -17,11 +17,10 @@ class JSLoadProcessor extends AudioWorkletProcessor {
         let output = outputs[0];
         let input = inputs[0];
         let load = parameters.load;
-        // load is k-rate param
+        
         let iterations = Math.floor(load[0] * 1000);   
         let gain_compensation = 1 / iterations;
         
-        // console.log("load: ", load[0], "iterations: ", iterations, "gain_compensation: ", gain_compensation);     
         for (let iChannel = 0; iChannel < output.length; iChannel++) {
             for (var j = 0; j < iterations; j++) {
                 for (var iSample = 0; iSample < output[iChannel].length; iSample++) {

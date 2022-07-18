@@ -63,192 +63,13 @@
             exports = {};
         </script>
         <script src="utils.js"></script>
-        <script src="index.js"></script>
-        <script src="audiostore.js"></script>
+        <script src="js/index.js"></script>
+        <script src="js/engine.js"></script>
+        <script src="js/audiostore.js"></script>
         <script>
-            const audioContext = new AudioContext();
-            audioContext.suspend();
-            console.log("audioContext.sampleRate: ", audioContext.sampleRate);
+            const audioEngine = new AudioEngine();
 
-            const store = new AudioStore(audioContext);
-            store.init();
-
-            let decodedFileNames = [];
             document.getElementById("startBtn").disabled = true;
-
-            let worker = null;
-            let loadGenerator = null;
-
-            function setupAudioReader(sab, trackModel) {
-                URLFromFiles(['audioreader.js', 'index.js', 'audiostore.js']).then((e) => {
-                    worker = new Worker(e);
-
-                    URLFromFiles(["audioreaderworker.js", "index.js", "audiostore.js"]).then((url) => {
-                        worker.postMessage({
-                            command: "init",
-                            sab: sab,
-                            trackModel: trackModel,
-                            workerURL: url
-                        });
-                    })
-
-                    worker.onmessage = e => {
-                        console.log("ready");
-                        switch (e.data.command) {
-                            case "ready": {
-                                document.getElementById("startBtn").disabled = false;
-                                break;
-                            }
-                            default: {
-                                throw Error("Unknown case in app.js");
-                            }
-                        }
-                    }
-                });
-            }
-
-            async function createLoadGeneratorNode(input, iOutput, output) {
-                const processorPath = window.language === "js" ? "load-processor.js" : "load-processor-wasm.js";
-                const processorName = window.language === "js" ? "load-processor-js" : "load-processor-wasm";
-
-                await audioContext.audioWorklet.addModule(processorPath);
-
-                audioWorkletNode = new AudioWorkletNode(audioContext, processorName);
-                audioWorkletNode.port.onmessage = (event) => onmessage(event.data);
-                audioWorkletNode.connect(audioContext.destination);
-
-                if (window.language === "wasm") {
-                    fetch("load-wasm/target/wasm32-unknown-unknown/release/load_wasm.wasm")
-                        .then(r => r.arrayBuffer())
-                        .then(r => audioWorkletNode.port.postMessage({ type: 'load-wasm-module', data: r }));
-                }
-
-                input
-                    .connect(audioWorkletNode, iOutput)
-                    .connect(output);
-
-                return audioWorkletNode;
-            }
-
-            async function setupAudioRoutingGraph(trackModel) {
-                URLFromFiles(["wave-processor.js", "index.js"]).then(async (e) => {
-                    if (audioContext.audioWorklet === undefined) {
-                        log("No AudioWorklet.");
-                    } else {
-                        await audioContext.audioWorklet.addModule(e);
-
-                        const tracks = trackModel.tracks;
-                        const numberOfOutputs = tracks.length;
-                        // 50ms of buffer, increase in case of glitches
-                        const sab = exports.RingBuffer.getStorageForCapacity(
-                            (audioContext.sampleRate / 20) * numberOfOutputs,
-                            Float32Array
-                        );
-
-                        async function loadAudioFiles() {
-                            let promises = [];
-                            for (var iTrack = 0; iTrack < numberOfOutputs; iTrack++) {
-                                const track = tracks[iTrack];
-                                const numClips = track.clips.length;
-                                for (var iClip = 0; iClip < numClips; iClip++) {
-                                    const clip = track.clips[iClip];
-                                    promises.push(loadAudioFile(clip));
-                                }
-                            }
-
-                            await Promise.all(promises);
-                        }
-
-                        loadAudioFiles().then(() => {
-                            console.log("setup reader");
-                            setupAudioReader(sab, trackModel);
-                        });
-
-                        const audioWorkletNode = new AudioWorkletNode(audioContext, "wave-processor", {
-                            processorOptions: {
-                                audioQueue: sab,
-                            },
-                            numberOfOutputs: numberOfOutputs
-                        });
-
-                        let masterGain = audioContext.createGain();
-                        for (let iOutput = 0; iOutput < numberOfOutputs; iOutput++) {
-                            let gain = audioContext.createGain();
-                            gain.gain.value = 1 / numberOfOutputs;
-                            audioWorkletNode.connect(gain, iOutput);
-                            gain.connect(masterGain);
-                        }
-
-                        loadGenerator = await createLoadGeneratorNode(masterGain, 0, audioContext.destination);
-                        let loadParam = loadGenerator.parameters.get("load");
-                        loadParam.value = 10;
-                        // navigator.mediaDevices.getUserMedia({
-                        //     audio: {
-                        //         // echoCancellation: false,
-                        //         autoGainControl: false,
-                        //         noiseSuppression: false,
-                        //         latency: 0
-                        //     }
-                        // }).then(userMedia => {
-                        //     const input = audioContext.createMediaStreamSource(userMedia);
-                        //     input.connect(audioWorkletNode);
-                        // }
-                        // )
-                    }
-                });
-            }
-
-            async function loadAudioFile(clip) {
-                return new Promise((resolve, reject) => {
-                    if (decodedFileNames.includes(clip.fileName)) {
-                        resolve();
-                    } else {
-                        var request = new XMLHttpRequest();
-                        request.open('GET', clip.fileName, true);
-                        request.responseType = 'arraybuffer';
-                        request.onload = () => {
-                            var audioData = request.response;
-                            console.log("decodeAudioData ", clip.fileName);
-                            audioContext.decodeAudioData(audioData, function (buffer) {
-                                store.saveAudioBuffer(clip.fileName, buffer).then(metadata => {
-                                    duration = metadata.duration;
-                                    resolve();
-                                });
-                            },
-
-                                e => {
-                                    console.log("Error with decoding audio data" + e.err);
-                                    reject()
-                                });
-                        }
-
-                        request.onerror = reject;
-                        request.send();
-
-                        decodedFileNames.push(clip.fileName);
-                    }
-
-                });
-            }
-
-            function loadTrackConfig(configFileName) {
-                const request = new XMLHttpRequest();
-                request.open("GET", configFileName);
-                request.onload = function () {
-                    const trackModel = JSON.parse(request.responseText);
-                    setupAudioRoutingGraph(trackModel);
-                }
-
-                request.send();
-            }
-
-            function startAudio() {
-                audioContext.resume();
-            }
-
-            function stopAudio() {
-                audioContext.suspend();
-            }
 
             function createTrackConfig(nTracks) {
                 let trackConfig = {};
@@ -282,7 +103,7 @@
 
             function changeNumTracks(nTracks) {
                 const trackModel = createTrackConfig(nTracks);
-                setupAudioRoutingGraph(trackModel);
+                audioEngine.setupAudioRoutingGraph(trackModel);
             }
 
             function changeProcessingLanguage(language) {
@@ -292,25 +113,19 @@
             }
 
             function changeProcessingLoad(newLoad = -1) {
-                if (newLoad < 0) {
-                    console.log("changeProcessingLoad")
-                    let load = 0;
-                    if (loadGenerator) {
-                        let loadParam = loadGenerator.parameters.get("load");
-                        load = document.getElementById("load-slider").value;
-                        loadParam.value = load < 1 ? 0.001 : Math.floor(load);
-                    }
-
-                    document.getElementById("load-slider-label").innerHTML = `Load: ${load}`;
-                } else {
-                    // in this case changeProcessingLoad was set with an explicit value
-                    document.getElementById("load-slider").value = newLoad;
-                    changeProcessingLoad();
-                }
+                audioEngine.changeProcessingLoad(newLoad);
             }
 
             function debug() {
-                worker.postMessage({ command: "preload debug" });
+                // worker.postMessage({ command: "preload debug" });
+            }
+
+            function startAudio() {
+                audioEngine.startAudio();
+            }
+
+            function stopAudio() {
+                audioEngine.stopAudio();
             }
 
             const urlParams = new URLSearchParams(window.location.search);

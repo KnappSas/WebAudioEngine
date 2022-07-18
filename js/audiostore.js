@@ -468,65 +468,6 @@ class AudioStore {
         return metadata;
     }
 
-    // /**
-    //  * get an AudioBuffer for the given track name
-    //  *
-    //  * this method will automatically stitch together multiple chunks
-    //  * if necessary, we well as perform any trimming needed for
-    //  * `offset` and `duration`.
-    //  *
-    //  * @method getAudioBuffer
-    //  *
-    //  * @param  {String}       name          – track name
-    //  * @param  {Number}       [offset=0]    – offset in seconds
-    //  * @param  {Number}       [duration=10] – duration in seconds
-    //  * @return {Promise}                    – resolves with an AudioBuffer
-    //  */
-
-    //  async getAudioBufferFromSamplePos(name, offsetSamples = 0, numSamples = 1) {
-    //     let offset = offsetSamples * this.rate;
-    //     let duration = numSamples * this.rate;
-
-    //     const start = offset;
-    //     const end = offset + duration;
-    //     const log = `getting audiobuffer ${name} @ ${start}s-${end}s`;
-
-    //     // console.info(log);
-
-    //     const metadata = await this.getMetadata(name);
-
-    //     if (offset + duration > metadata.duration) {
-    //         const msg = `${end} is beyond track duration ${metadata.duration}`;
-    //         throw new Error(msg);
-    //     }
-
-    //     const rate = metadata.rate;
-    //     const seconds = Math.floor(offset / this.duration) * this.duration;
-    //     const samples = Math.ceil(duration * rate);
-    //     const promises = [];
-
-    //     offset -= seconds;
-
-    //     const first = Math.floor(offset * rate);
-    //     const last = first + samples;
-
-    //     let sec = seconds;
-
-    //     while (sec - offset < seconds + duration) {
-    //         promises.push(this.#getChunk(name, sec));
-    //         sec += this.duration;
-    //     }
-
-    //     const chunks = await Promise.all(promises);
-    //     // console.log("chnks:", chunks);
-    //     const ab = this.#mergeChunks(chunks, metadata, first, last);
-    //     const msg = `got audiobuffer ${name} @ ${start}s-${end}s`;
-
-    //     // console.info(msg);
-
-    //     return ab;
-    // }
-
     /**
      * get an AudioBuffer for the given track name
      *

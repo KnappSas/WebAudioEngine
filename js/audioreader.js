@@ -16,7 +16,7 @@ let nextTransportSeconds = 0;
 
 let rest = 0;
 
-const nWorkers = 10;
+const nWorkers = 1;
 let workers = [];
 
 let numChunks = 0;
@@ -100,7 +100,7 @@ onmessage = e => {
                 }
 
                 timeout();
-                setTimeout(() => { postMessage({ command: "ready" }); }, 5000);
+                postMessage({ command: "ready" });
             });
 
             break;

@@ -11,110 +11,98 @@
                     "length": 44161,
                     "iStartInFile": 0,
                     "iEndInFile": 44160
-                    },
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 44161,
                     "length": 44161,
                     "iStartInFile": 44161,
                     "iEndInFile": 88321
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 88322,
                     "length": 44161,
                     "iStartInFile": 88322,
                     "iEndInFile": 132482
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 132483,
                     "length": 44161,
                     "iStartInFile": 132483,
                     "iEndInFile": 176643
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 176644,
                     "length": 44161,
                     "iStartInFile": 176644,
                     "iEndInFile": 220804
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 220805,
                     "length": 44161,
                     "iStartInFile": 220805,
                     "iEndInFile": 264965
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 264966,
                     "length": 44161,
                     "iStartInFile": 264966,
                     "iEndInFile": 309126
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 309127,
                     "length": 44161,
                     "iStartInFile": 309127,
                     "iEndInFile": 353287
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 353288,
                     "length": 44161,
                     "iStartInFile": 353288,
                     "iEndInFile": 397448
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 397449,
                     "length": 44161,
                     "iStartInFile": 397449,
                     "iEndInFile": 441609
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 441610,
                     "length": 44161,
                     "iStartInFile": 441610,
                     "iEndInFile": 485770
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 485771,
                     "length": 44161,
                     "iStartInFile": 485771,
                     "iEndInFile": 529931
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 529932,
                     "length": 44161,
                     "iStartInFile": 529932,
                     "iEndInFile": 574092
-                    },
-                    
-                    {
+                },
+                {
                     "fileName": "audio/sweep.wav",
                     "samplePos": 574093,
                     "length": 9305100,
                     "iStartInFile": 574093,
                     "iEndInFile": 9305100
-                    }
+                }
             ]
         }
     ]

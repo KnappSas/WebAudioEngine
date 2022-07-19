@@ -2,7 +2,7 @@
     "name": "webaudioengine",
     "version": "0.0.1",
     "description": "TODO",
-    "main": "src/host.js",
+    "main": "app.js",
     "scripts": {
       "build": "webpack"
     },
@@ -12,9 +12,9 @@
       "@webaudiomodules/api": "^2.0.0-alpha.3",
       "@webaudiomodules/sdk": "^0.0.7",
       "@webaudiomodules/sdk-parammgr": "^0.0.8",
-      "webpack-cli": "^4.10.0"
+      "ringbuf.js": "0.3.2"
     },
     "dependencies": {
-      "webpack": "^5.73.0"
+      "@audiostore": "KnappSas/AudioStore#master"
     }
   }

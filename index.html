@@ -26,7 +26,7 @@
             <button id="track-band" onclick="loadTrackConfig('config.json')">Band</button>
             <!-- <button id="debug" onclick="debug()">Debug</button> -->
         </section>
-        <section>
+        <!-- <section>
             <h4 style="margin-bottom: 5px; color: #888">Audio processing language</h4>
             <p style="font-size: 0.7em; color: #999">Select which language is used
                 for the load generation.
@@ -58,89 +58,15 @@
                 <button id="load-25" onclick="changeProcessingLoad(25)">25</button>
                 <button id="load-50" onclick="changeProcessingLoad(50)">50</button>
             </div>
-        </section>
+        </section> -->
         <script>
             exports = {};
         </script>
         <script src="utils.js"></script>
-        <script src="js/index.js"></script>
+        <script src="node_modules/ringbuf.js/dist/index.js"></script>
+        <script src="node_modules/@audiostore/lib/index.js"></script>
+        <script src="js/track.js"></script>
         <script src="js/engine.js"></script>
-        <script src="js/audiostore.js"></script>
-        <script>
-            const audioEngine = new AudioEngine();
-
-            document.getElementById("startBtn").disabled = true;
-
-            function createTrackConfig(nTracks) {
-                let trackConfig = {};
-                trackConfig.tracks = [];
-
-                let samplePos = 0;
-                let length = 1323000;
-                let iStartInFile = 0;
-                let iEndInFile = 1323000;
-                for (let iTrack = 0; iTrack < nTracks; iTrack++) {
-                    let track = {};
-
-                    track.id = iTrack;
-                    track.number = iTrack + 1;
-                    track.lastClipIndex = 0;
-                    track.clips = [];
-
-                    let clip = {};
-                    clip.fileName = "audio/sweep.wav";
-                    clip.samplePos = samplePos;
-                    clip.length = length;
-                    clip.iStartInFile = iStartInFile;
-                    clip.iEndInFile = iEndInFile;
-
-                    track.clips.push(clip);
-                    trackConfig.tracks.push(track);
-                }
-
-                return trackConfig;
-            }
-
-            function changeNumTracks(nTracks) {
-                const trackModel = createTrackConfig(nTracks);
-                audioEngine.setupAudioRoutingGraph(trackModel);
-            }
-
-            function changeProcessingLanguage(language) {
-                window.language = language;
-                const newUrl = `${window.location.origin}${window.location.pathname}?strings=${window.numStrings}&visualize=${window.visualize}&channel=${window.channel}&ratio=${window.ratio}&lang=${window.language}`;
-                window.location.href = newUrl;
-            }
-
-            function changeProcessingLoad(newLoad = -1) {
-                audioEngine.changeProcessingLoad(newLoad);
-            }
-
-            function debug() {
-                // worker.postMessage({ command: "preload debug" });
-            }
-
-            function startAudio() {
-                audioEngine.startAudio();
-            }
-
-            function stopAudio() {
-                audioEngine.stopAudio();
-            }
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const lang = urlParams.get('lang') === "js"
-                ? "js"
-                : "wasm"
-
-            window.language = lang;
-            switch (lang) {
-                case "wasm": document.getElementById("choice-wasm").checked = true; break;
-                case "js": document.getElementById("choice-js").checked = true; break;
-            }
-
-            document.getElementById("load-slider-label").innerHTML = "Load: 0";
-        </script>
+        <script src="js/app.js"></script>
 </body>
-
 </html>

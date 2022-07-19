@@ -1,18 +1,29 @@
 'use strict'
 
-const audioEnginePrototype = {
-    setupAudioReader(sab, trackModel) {
-        URLFromFiles(['js/audioreader.js', 'js/index.js', 'js/audiostore.js']).then((e) => {
-            this.worker = new Worker(e);
+// import AudioStore from '@audiostore/lib/audiostore.js';
+// import { RingBuffer } from 'ringbuf.js';
+// import Track from "./track.js";
+// import URLFromFiles from "../utils.js";
 
-            URLFromFiles(["js/audioreaderworker.js", "js/index.js", "js/audiostore.js"]).then((url) => {
-                this.worker.postMessage({
-                    command: "init",
-                    sab: sab,
-                    trackModel: trackModel,
-                    workerURL: url
-                });
-            })
+const audioEnginePrototype = {
+    setupAudioReader(sabs) {
+        const WORKER_PATH = 'js/audioreader.js';
+        const AUDIO_STORE_PATH = 'node_modules/@audiostore/lib/index.js';
+        const AUDIO_WRITER_PATH = 'node_modules/ringbuf.js/dist/index.js';
+
+        URLFromFiles([WORKER_PATH, AUDIO_STORE_PATH, AUDIO_WRITER_PATH]).then(async (url) => {
+            this.worker = new Worker(url);
+
+            let trackModels = [];
+            this.tracks.forEach(track => {
+                trackModels.push(track.model);
+            });
+
+            this.worker.postMessage({
+                command: "init",
+                sabs: sabs,
+                tracks: trackModels,
+            });
 
             this.worker.onmessage = e => {
                 console.log("ready");
@@ -52,86 +63,66 @@ const audioEnginePrototype = {
         return audioWorkletNode;
     },
 
-    async loadAudioFile(clip) {
-        return new Promise((resolve, reject) => {
-            if (this.decodedFileNames.includes(clip.fileName)) {
-                resolve();
-            } else {
-                var request = new XMLHttpRequest();
-                request.open('GET', clip.fileName, true);
-                request.responseType = 'arraybuffer';
-                request.onload = () => {
-                    let audioData = request.response;
-                    console.log("decodeAudioData ", clip.fileName);
-                    this.audioContext.decodeAudioData(audioData, (buffer) => {
-                        this.store.saveAudioBuffer(clip.fileName, buffer).then(metadata => {
-                            // duration = metadata.duration;
-                            resolve();
-                        });
-                    },
-    
-                        e => {
-                            console.log("Error with decoding audio data" + e.err);
-                            reject()
-                        });
-                }
-    
-                request.onerror = reject;
-                request.send();
-    
-                this.decodedFileNames.push(clip.fileName);
-            }
-        });
+    addModule(audioContext, files) {
+        const url = URLFromFiles(files);
+        console.log("hello1");
+        return audioContext.audioWorklet.addModule(url);
     },
 
     async setupAudioRoutingGraph(trackModel) {
-        URLFromFiles(["js/wave-processor.js", "js/index.js"]).then(async (e) => {
+        if (this.audioContext.audioWorklet === undefined) {
+            log("No AudioWorklet.");
+        } else {
             if (this.audioContext.audioWorklet === undefined) {
-                log("No AudioWorklet.");
-            } else {
-                await this.audioContext.audioWorklet.addModule(e);
+                log("No AudioWorklet available.");
+                return;
+            } 
 
-                const tracks = trackModel.tracks;
-                const numberOfOutputs = tracks.length;
-                // 50ms of buffer, increase in case of glitches
-                const sab = exports.RingBuffer.getStorageForCapacity(
-                    (this.audioContext.sampleRate / 20) * numberOfOutputs,
-                    Float32Array
-                );
-
-                let loadAudioFiles = async () => {
-                    let promises = [];
-                    for (var iTrack = 0; iTrack < numberOfOutputs; iTrack++) {
-                        const track = tracks[iTrack];
-                        const numClips = track.clips.length;
-                        for (var iClip = 0; iClip < numClips; iClip++) {
-                            const clip = track.clips[iClip];
-                            promises.push(this.loadAudioFile(clip));
-                        }
-                    }
-
-                    await Promise.all(promises);
-                }
-
-                loadAudioFiles().then(() => {
-                    console.log("setup reader");
-                    this.setupAudioReader(sab, trackModel);
-                });
-
-                const audioWorkletNode = new AudioWorkletNode(this.audioContext, "wave-processor", {
-                    processorOptions: {
-                        audioQueue: sab,
-                    },
-                    numberOfOutputs: numberOfOutputs
-                });
+            // await this.addModule(this.audioContext, ['js/wave-processor.js', 'node_modules/ringbuf.js/dist/index.js']);
+            URLFromFiles(['js/wave-processor.js', 'node_modules/ringbuf.js/dist/index.js']).then(async (url) => {
+                await this.audioContext.audioWorklet.addModule(url);
 
                 let masterGain = this.audioContext.createGain();
-                for (let iOutput = 0; iOutput < numberOfOutputs; iOutput++) {
-                    let gain = this.audioContext.createGain();
-                    gain.gain.value = 1 / numberOfOutputs;
-                    audioWorkletNode.connect(gain, iOutput);
-                    gain.connect(masterGain).connect(this.audioContext.destination);
+                masterGain.connect(this.audioContext.destination);
+
+                let promises = [];
+
+                const sabs = [];
+                for (let iTrack = 0; iTrack < trackModel.tracks.length; iTrack++) {
+                    const sab = exports.RingBuffer.getStorageForCapacity(
+                        (this.audioContext.sampleRate / 20),
+                        Float32Array
+                    );
+
+                    sabs.push(sab);
+
+                    let track = new Track(this.audioContext, this.store);
+                    track.initialize(sab);
+
+                    this.tracks.push(track);
+                    track.connectToOutput(masterGain);
+
+                    promises.push(track.loadFileAsClip(trackModel.tracks[iTrack].clips[0].fileName));
                 }
+
+                await Promise.all(promises);
+
+                // let d = 44160/44100
+                // let inc = 44160/44100;
+
+                // let fileName = this.tracks[0].model.clips[0].fileName;
+                // let b0 = await this.store.getAudioBuffer(fileName, 0, d+d+d+d);
+                // console.log(b0);
+                // let b1 = await this.store.getAudioBuffer(fileName, 0, d); // 44159: -0.9971874356269836, 44160: -0.9939904808998108
+                // console.log(b1);
+                // let b2 = await this.store.getAudioBuffer(fileName, inc, d); // 88318: 0.9042859077453613, 88319: 0.9199953675270081, 88320: 0.934350848197937
+                // console.log(b2);
+                // let b3 = await this.store.getAudioBuffer(fileName, inc+inc, d); // 132477
+                // console.log(b3);
+                // let b4 = await this.store.getAudioBuffer(fileName, inc+inc+inc, d); // 
+                // console.log(b4);
+
+                this.setupAudioReader(sabs);
 
                 // loadGenerator = await createLoadGeneratorNode(masterGain, 0, audioContext.destination);
                 // let loadParam = loadGenerator.parameters.get("load");
@@ -147,9 +138,9 @@ const audioEnginePrototype = {
                 //     const input = audioContext.createMediaStreamSource(userMedia);
                 //     input.connect(audioWorkletNode);
                 // }
-                // )
-            }
-        });
+                // )  
+            });
+        }
     },
 
     loadTrackConfig(configFileName) {
@@ -203,6 +194,7 @@ function AudioEngine() {
     this.loadGenerator = null;
 
     this.decodedFileNames = [];
+    this.tracks = [];
 }
 
 Object.assign(AudioEngine.prototype, audioEnginePrototype);

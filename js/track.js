@@ -32,7 +32,11 @@ class Track {
         this.gain.connect(node);
     }
 
-    async loadAudioFile(fileName) {
+    setGain(gain) {
+        this.gain.gain.setValueAtTime(gain, this.audioContext.currentTime);
+    }
+
+    loadAudioFile(fileName) {
         return new Promise((resolve, reject) => {
             if (Track.decodedFileNames.includes(fileName)) {
                 resolve();
@@ -42,7 +46,6 @@ class Track {
                 request.responseType = 'arraybuffer';
                 request.onload = () => {
                     let audioData = request.response;
-                    console.log("decodeAudioData ", fileName);
                     this.audioContext.decodeAudioData(audioData, (buffer) => {
                         this.store.saveAudioBuffer(fileName, buffer).then(metadata => {
                             // duration = metadata.duration;
@@ -73,6 +76,6 @@ class Track {
         };
 
         this.model.clips.push(clip);
-        return this.loadAudioFile(fileName);
+        await this.loadAudioFile(fileName);
     }
 };

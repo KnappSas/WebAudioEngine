@@ -1,13 +1,16 @@
 document.getElementById("startBtn").onclick = startAudio;
 document.getElementById("stopBtn").onclick = stopAudio;
 
-const TRACK_NUMS = [1, 2, 9, 10, 100, 250, 1000];
+const TRACK_NUMS = [1, 2, 16, 32, 64, 128, 256];
 
-for(let i = 0; i < TRACK_NUMS.length; i++) {
+for (let i = 0; i < TRACK_NUMS.length; i++) {
     const numTracks = TRACK_NUMS[i];
-    document.getElementById(`track-${numTracks}`).onclick = () => {changeNumTracks(numTracks)};
+    document.getElementById("track-section").innerHTML += `<button id=\"track-${numTracks}\">${numTracks}</button>`;
 }
-
+for (let i = 0; i < TRACK_NUMS.length; i++) {
+    const numTracks = TRACK_NUMS[i];
+    document.getElementById(`track-${numTracks}`).onclick = () => { changeNumTracks(numTracks) };
+}
 
 const audioEngine = new AudioEngine();
 
@@ -44,8 +47,16 @@ function createTrackConfig(nTracks) {
 }
 
 function changeNumTracks(nTracks) {
-    const trackModel = createTrackConfig(nTracks);
-    audioEngine.setupAudioRoutingGraph(trackModel);
+    audioEngine.setupAudioRoutingGraph().then(() => {
+        const trackModel = createTrackConfig(nTracks);
+        const numChannels = trackModel.tracks.length;
+        for (let iTrack = 0; iTrack < numChannels; iTrack++) {
+            audioEngine.addTrack({gain: 1 / numChannels});
+            audioEngine.addFileToTrack(iTrack, trackModel.tracks[iTrack].clips[0].fileName);
+        }
+
+        document.getElementById("startBtn").disabled = false;
+    });
 }
 
 function changeProcessingLanguage(language) {

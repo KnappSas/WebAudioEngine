@@ -28,6 +28,8 @@ async function setupWorker(workerURL, tracks, sabs, nWorkers) {
                 }
             }
         });
+
+        return p;
     }
 
     let promises = [];

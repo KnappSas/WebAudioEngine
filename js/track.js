@@ -1,15 +1,17 @@
-// export default class Track {
 class Track {
     static decodedFileNames = [];
+    static ID = 0;
 
     constructor(audioContext, store) {
         this.audioContext = audioContext;
         this.store = store;
         this.audioWorkletNode = null;
-        this.gain = null;
+        this.gainNode = null;
         this.model = {
             clips: []
         };
+        this.plugins = [];
+        this.id = Track.ID++;
     }
 
     initialize(sab) {
@@ -19,9 +21,8 @@ class Track {
             },
         });
 
-        this.gain = this.audioContext.createGain();
-        // gain.gain.value = 1 / numberOfOutputs;
-        this.audioWorkletNode.connect(this.gain);
+        this.gainNode = this.audioContext.createGain();
+        this.audioWorkletNode.connect(this.gainNode);
     }
 
     connectToInput(node) {
@@ -29,11 +30,11 @@ class Track {
     }
 
     connectToOutput(node) {
-        this.gain.connect(node);
+        this.gainNode.connect(node);
     }
 
     setGain(gain) {
-        this.gain.gain.setValueAtTime(gain, this.audioContext.currentTime);
+        this.gainNode.gain.setValueAtTime(gain, this.audioContext.currentTime);
     }
 
     loadAudioFile(fileName) {
@@ -77,5 +78,37 @@ class Track {
 
         this.model.clips.push(clip);
         await this.loadAudioFile(fileName);
+    }
+
+    addPlugin(url) {
+        (async () => {
+            const { default: apiVersion } = await import ('../node_modules/@webaudiomodules/api/src/version.js');
+            const { default: addFunctionModule } = await import("../node_modules/@webaudiomodules/sdk/src/addFunctionModule.js");
+            const { default: initializeWamEnv } = await import("../node_modules/@webaudiomodules/sdk/src/WamEnv.js");
+            await addFunctionModule(this.audioContext.audioWorklet, initializeWamEnv, apiVersion);
+            const { default: initializeWamGroup } = await import("../node_modules/@webaudiomodules/sdk/src/WamGroup.js");
+            const hostGroupId = 'webaudioengine-test-host';
+            const hostGroupKey = performance.now().toString();
+            await addFunctionModule(this.audioContext.audioWorklet, initializeWamGroup, hostGroupId, hostGroupKey);
+
+            const { default: PluginFactory } = await import(url);
+            const pluginInstance = await PluginFactory.createInstance(hostGroupId, this.audioContext);
+
+            let lastPluginInChain = null;
+            if(this.plugins.length === 0) {
+                lastPluginInChain = this.audioWorkletNode;
+            } else {
+                lastPluginInChain = this.plugins[this.plugins.length-1].audioNode;
+            }
+            
+            lastPluginInChain.disconnect(this.gainNode);
+            lastPluginInChain.connect(pluginInstance.audioNode);       
+            pluginInstance.audioNode.connect(this.gainNode);     
+
+            this.plugins.push(pluginInstance);
+            // IF GUI!
+            //const domNode = await loadGeneratorPluginInstance.createGui();
+            //mount.appendChild(domNode);
+        })();
     }
 };

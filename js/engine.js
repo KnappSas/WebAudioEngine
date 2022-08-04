@@ -6,57 +6,29 @@
 // import URLFromFiles from "../utils.js";
 
 const audioEnginePrototype = {
-    setupAudioReader(sabs) {
+    async setupAudioReader(sabs) {
         const WORKER_PATH = 'js/audioreader.js';
         const AUDIO_STORE_PATH = 'node_modules/@audiostore/lib/index.js';
         const AUDIO_WRITER_PATH = 'node_modules/ringbuf.js/dist/index.js';
         const PRELOAD_TASK_PATH = 'js/preloadtask.js';
 
-        URLFromFiles([WORKER_PATH, AUDIO_STORE_PATH, AUDIO_WRITER_PATH, PRELOAD_TASK_PATH]).then(async (url) => {
-            this.worker = new Worker(url);
-
-            let trackModels = [];
-            this.tracks.forEach(track => {
-                trackModels.push(track.model);
-            });
-
-            setupWorker(url, trackModels, sabs, 10).then(() => {
-                console.log("ready");
-                document.getElementById("startBtn").disabled = false;
-            });
+        const url = await URLFromFiles([WORKER_PATH, AUDIO_STORE_PATH, AUDIO_WRITER_PATH, PRELOAD_TASK_PATH]);
+        let trackModels = [];
+        this.tracks.forEach(track => {
+            trackModels.push(track.model);
         });
-    },
 
-    async createLoadGeneratorNode(input, iOutput, output) {
-        const processorPath = window.language === "js" ? "plugins/LoadGeneratorWAM/js/load-processor.js" : "plugins/LoadGeneratorWAM/js/load-processor-wasm.js";
-        const processorName = window.language === "js" ? "plugins/LoadGeneratorWAM/js/load-processor-js" : "plugins/LoadGeneratorWAM/js/load-processor-wasm";
-
-        await audioContext.audioWorklet.addModule(processorPath);
-
-        audioWorkletNode = new AudioWorkletNode(audioContext, processorName);
-        audioWorkletNode.port.onmessage = (event) => onmessage(event.data);
-        audioWorkletNode.connect(audioContext.destination);
-
-        if (window.language === "wasm") {
-            fetch("load-wasm/target/wasm32-unknown-unknown/release/load_wasm.wasm")
-                .then(r => r.arrayBuffer())
-                .then(r => audioWorkletNode.port.postMessage({ type: 'load-wasm-module', data: r }));
-        }
-
-        input
-            .connect(audioWorkletNode, iOutput)
-            .connect(output);
-
-        return audioWorkletNode;
+        console.log("setupWorker...");
+        await setupWorker(url, trackModels, sabs, 8);
+        console.log("ready");
     },
 
     addModule(audioContext, files) {
         const url = URLFromFiles(files);
-        console.log("hello1");
         return audioContext.audioWorklet.addModule(url);
     },
 
-    async setupAudioRoutingGraph(trackModel) {
+    async setupAudioRoutingGraph() {
         if (this.audioContext.audioWorklet === undefined) {
             log("No AudioWorklet.");
         } else {
@@ -65,55 +37,55 @@ const audioEnginePrototype = {
                 return;
             }
 
-            URLFromFiles(['js/wave-processor.js', 'node_modules/ringbuf.js/dist/index.js']).then(async (url) => {
-                await this.audioContext.audioWorklet.addModule(url);
+            const url = await URLFromFiles(['js/wave-processor.js', 'node_modules/ringbuf.js/dist/index.js']);
+            await this.audioContext.audioWorklet.addModule(url);
+            this.masterGain = this.audioContext.createGain();
+            this.masterGain.connect(this.audioContext.destination);
 
-                let masterGain = this.audioContext.createGain();
-                masterGain.connect(this.audioContext.destination);
+            // let promises = [];
+            // const sabs = [];
+            // const numChannels = trackModel.tracks.length;
+            // for (let iTrack = 0; iTrack < numChannels; iTrack++) {
+            //     const sab = exports.RingBuffer.getStorageForCapacity(
+            //         (this.audioContext.sampleRate),
+            //         Float32Array
+            //     );
 
-                let promises = [];
-                const sabs = [];
-                const numChannels = trackModel.tracks.length;
-                for (let iTrack = 0; iTrack < numChannels; iTrack++) {
-                    const sab = exports.RingBuffer.getStorageForCapacity(
-                        (this.audioContext.sampleRate),
-                        Float32Array
-                    );
+            //     sabs.push(sab);
 
-                    sabs.push(sab);
+            //     let track = new Track(this.audioContext, this.store);
+            //     track.initialize(sab);
 
-                    let track = new Track(this.audioContext, this.store);
-                    track.initialize(sab);
+            //     this.mixer.addChannel(track);
+            //     this.mixer.setGain(iTrack, 1 / numChannels);
 
-                    this.mixer.addChannel(track);
-                    this.mixer.setGain(iTrack, 1 / numChannels);
+            //     this.tracks.push(track);
 
-                    this.tracks.push(track);
+            //     track.connectToOutput(masterGain);
 
-                    track.connectToOutput(masterGain);
+            //     promises.push(track.loadFileAsClip(trackModel.tracks[iTrack].clips[0].fileName));
 
-                    promises.push(track.loadFileAsClip(trackModel.tracks[iTrack].clips[0].fileName));
-                }
+            //     for(let i = 0; i < 10; i++) {
+            //         track.addPlugin(pluginCollection.get('LoadGeneratorJS'));
+            //     }
+            // }
 
-                await Promise.all(promises);
-                this.setupAudioReader(sabs);
+            // await Promise.all(promises);
+            // this.setupAudioReader(sabs);
 
-                // loadGenerator = await createLoadGeneratorNode(masterGain, 0, audioContext.destination);
-                // let loadParam = loadGenerator.parameters.get("load");
-                // loadParam.value = 10;
-                // navigator.mediaDevices.getUserMedia({
-                //     audio: {
-                //         // echoCancellation: false,
-                //         autoGainControl: false,
-                //         noiseSuppression: false,
-                //         latency: 0
-                //     }
-                // }).then(userMedia => {
-                //     const input = audioContext.createMediaStreamSource(userMedia);
-                //     input.connect(audioWorkletNode);
-                // }
-                // )  
-            });
+            // navigator.mediaDevices.getUserMedia({
+            //     audio: {
+            //         // echoCancellation: false,
+            //         autoGainControl: false,
+            //         noiseSuppression: false,
+            //         latency: 0
+            //     }
+            // }).then(userMedia => {
+            //     const input = audioContext.createMediaStreamSource(userMedia);
+            //     input.connect(audioWorkletNode);
+            // }
+            // )  
+
         }
     },
 
@@ -128,12 +100,49 @@ const audioEnginePrototype = {
         request.send();
     },
 
-    startAudio() {
+    async startAudio() {
+        await this.setupAudioReader(this.sabs);
         this.audioContext.resume();
     },
 
     stopAudio() {
         this.audioContext.suspend();
+    },
+
+    addTrack(options) {
+        const sab = exports.RingBuffer.getStorageForCapacity(
+            (this.audioContext.sampleRate),
+            Float32Array
+        );
+
+        this.sabs.push(sab);
+
+        let track = new Track(this.audioContext, this.store);
+        track.initialize(sab);
+
+        this.mixer.addChannel(track);
+        this.mixer.setGain(this.tracks.length, options.gain);
+
+        track.connectToOutput(this.masterGain);
+
+        this.tracks.push(track);
+    },
+
+    findTrack(trackId) {
+        for (let i = 0; i < this.tracks.length; i++) {
+            let track = this.tracks[i];
+            if (track.id === trackId) {
+                return track;
+            }
+        }
+
+        return new Track(this.audioContext, this.store);
+    },
+
+    async addFileToTrack(trackId, fileName) {
+        let track = this.findTrack(trackId);
+        console.log(track);
+        await track.loadFileAsClip(fileName);
     },
 
     changeProcessingLoad(newLoad = -1) {
@@ -169,8 +178,10 @@ function AudioEngine() {
 
     this.decodedFileNames = [];
     this.tracks = [];
+    this.sabs = [];
 
     this.mixer = new Mixer();
+    this.masterGain = null;
 }
 
 Object.assign(AudioEngine.prototype, audioEnginePrototype);

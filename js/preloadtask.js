@@ -1,4 +1,5 @@
 async function startPreloading(taskConfig) {
+    console.log(taskConfig);
     const CHUNK_SIZE = 128;
     const chunkSize = CHUNK_SIZE;
 

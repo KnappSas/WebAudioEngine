@@ -18,7 +18,7 @@ pub extern "C" fn generate(in_ptr: *mut f32, out_ptr: *mut f32, size: usize, loa
     let gain_compensation = 1.0 / iterations as f32 ;
     for _j in 0..iterations {
         for i in 0..size {
-            out_buf[i] = in_buf[i];
+            out_buf[i] += in_buf[i]*gain_compensation;
         }
     }
 }

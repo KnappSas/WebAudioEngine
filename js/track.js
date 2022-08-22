@@ -14,10 +14,14 @@ class Track {
         this.id = Track.ID++;
     }
 
-    initialize(sab) {
-        this.audioWorkletNode = new AudioWorkletNode(this.audioContext, "wave-processor", {
+    async initialize(sab) {
+        const p = await fetch(`${this._baseUrl}/../rust/target/wasm32-unknown-unknown/release/track_node_wasm.wasm`)
+        const wasm = await p.arrayBuffer();
+
+        this.audioWorkletNode = new AudioWorkletNode(this.audioContext, "track-processor", {
             processorOptions: {
                 audioQueue: sab,
+                wasm: wasm,
             },
         });
 
@@ -80,35 +84,45 @@ class Track {
         await this.loadAudioFile(fileName);
     }
 
-    addPlugin(url) {
-        (async () => {
-            const { default: apiVersion } = await import ('../node_modules/@webaudiomodules/api/src/version.js');
-            const { default: addFunctionModule } = await import("../node_modules/@webaudiomodules/sdk/src/addFunctionModule.js");
-            const { default: initializeWamEnv } = await import("../node_modules/@webaudiomodules/sdk/src/WamEnv.js");
-            await addFunctionModule(this.audioContext.audioWorklet, initializeWamEnv, apiVersion);
-            const { default: initializeWamGroup } = await import("../node_modules/@webaudiomodules/sdk/src/WamGroup.js");
-            const hostGroupId = 'webaudioengine-test-host';
-            const hostGroupKey = performance.now().toString();
-            await addFunctionModule(this.audioContext.audioWorklet, initializeWamGroup, hostGroupId, hostGroupKey);
+    setParameterValue(pluginId, parameterId, value) {
+        this.plugins[pluginId].audioNode.setParameterValues({
+            load: {
+                id: parameterId,
+                value: parseFloat(value),
+                normalized: false,
+            },
+        });
+    }
 
-            const { default: PluginFactory } = await import(url);
-            const pluginInstance = await PluginFactory.createInstance(hostGroupId, this.audioContext);
+    async addPlugin(url) {
+        const { default: apiVersion } = await import('../node_modules/@webaudiomodules/api/src/version.js');
+        const { default: addFunctionModule } = await import("../node_modules/@webaudiomodules/sdk/src/addFunctionModule.js");
+        const { default: initializeWamEnv } = await import("../node_modules/@webaudiomodules/sdk/src/WamEnv.js");
+        await addFunctionModule(this.audioContext.audioWorklet, initializeWamEnv, apiVersion);
+        const { default: initializeWamGroup } = await import("../node_modules/@webaudiomodules/sdk/src/WamGroup.js");
+        const hostGroupId = 'webaudioengine-test-host';
+        const hostGroupKey = performance.now().toString();
+        await addFunctionModule(this.audioContext.audioWorklet, initializeWamGroup, hostGroupId, hostGroupKey);
 
-            let lastPluginInChain = null;
-            if(this.plugins.length === 0) {
-                lastPluginInChain = this.audioWorkletNode;
-            } else {
-                lastPluginInChain = this.plugins[this.plugins.length-1].audioNode;
-            }
-            
-            lastPluginInChain.disconnect(this.gainNode);
-            lastPluginInChain.connect(pluginInstance.audioNode);       
-            pluginInstance.audioNode.connect(this.gainNode);     
+        const { default: PluginFactory } = await import(url);
+        const pluginInstance = await PluginFactory.createInstance(hostGroupId, this.audioContext);
 
-            this.plugins.push(pluginInstance);
-            // IF GUI!
-            //const domNode = await loadGeneratorPluginInstance.createGui();
-            //mount.appendChild(domNode);
-        })();
+        let lastPluginInChain = null;
+        if (this.plugins.length === 0) {
+            lastPluginInChain = this.audioWorkletNode;
+        } else {
+            lastPluginInChain = this.plugins[this.plugins.length - 1].audioNode;
+        }
+
+        lastPluginInChain.disconnect(this.gainNode);
+        lastPluginInChain.connect(pluginInstance.audioNode);
+        pluginInstance.audioNode.connect(this.gainNode);
+
+        this.plugins.push(pluginInstance);
+
+        return this.plugins.length - 1;
+        // IF GUI!
+        //const domNode = await loadGeneratorPluginInstance.createGui();
+        //mount.appendChild(domNode);
     }
 };

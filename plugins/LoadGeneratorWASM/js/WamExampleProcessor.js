@@ -86,13 +86,13 @@ const getWamExampleProcessor = (moduleId) => {
 			// load is k-rate param
 			let load = this._parameterInterpolators.load.values[startSample];
 			load = load <= 0 ? 0.001 : load;
-
 			for (let iChannel = 0; iChannel < output.length; iChannel++) {
 				for (var iSample = 0; iSample < 128; iSample++) {
 					this._inBuf[iSample] = input[iChannel % input.length][iSample];
 				}
-				//this.loadGenerator.generate(this._inPtr, this._outPtr, output[iChannel].length, load[0]);
-				output[iChannel].set(input[iChannel% input.length]);
+
+				this.loadGenerator.generate(this._inPtr, this._outPtr, output[iChannel].length, load);
+ 				output[iChannel].set(this._outBuf);
 			}
 		}
 	}

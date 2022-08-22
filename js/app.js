@@ -1,7 +1,7 @@
 document.getElementById("startBtn").onclick = startAudio;
 document.getElementById("stopBtn").onclick = stopAudio;
 
-const TRACK_NUMS = [1, 2, 16, 32, 64, 128, 256];
+const TRACK_NUMS = [1, 2, 10, 16, 32, 64, 96, 128, 256];
 
 for (let i = 0; i < TRACK_NUMS.length; i++) {
     const numTracks = TRACK_NUMS[i];
@@ -51,8 +51,14 @@ function changeNumTracks(nTracks) {
         const trackModel = createTrackConfig(nTracks);
         const numChannels = trackModel.tracks.length;
         for (let iTrack = 0; iTrack < numChannels; iTrack++) {
-            audioEngine.addTrack({gain: 1 / numChannels});
+            audioEngine.addTrack({ gain: 1 / numChannels });
             audioEngine.addFileToTrack(iTrack, trackModel.tracks[iTrack].clips[0].fileName);
+
+            for (let i = 0; i < 0; i++) {
+                audioEngine.insertPluginToTrack(iTrack, pluginCollection.get('LoadGeneratorWASM')).then((id)=>{
+                    audioEngine.setParameterValue(iTrack, id, 'load', 0.05);
+                });   
+            }
         }
 
         document.getElementById("startBtn").disabled = false;

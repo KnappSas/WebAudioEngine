@@ -19,7 +19,7 @@ const audioEnginePrototype = {
         });
 
         console.log("setupWorker...");
-        await setupWorker(url, trackModels, sabs, 8);
+        await setupWorker(url, trackModels, sabs, 1);
         console.log("ready");
     },
 
@@ -37,38 +37,10 @@ const audioEnginePrototype = {
                 return;
             }
 
-            const url = await URLFromFiles(['js/wave-processor.js', 'node_modules/ringbuf.js/dist/index.js']);
+            const url = await URLFromFiles(['js/track-processor.js', 'node_modules/ringbuf.js/dist/index.js']);
             await this.audioContext.audioWorklet.addModule(url);
             this.masterGain = this.audioContext.createGain();
             this.masterGain.connect(this.audioContext.destination);
-
-            // let promises = [];
-            // const sabs = [];
-            // const numChannels = trackModel.tracks.length;
-            // for (let iTrack = 0; iTrack < numChannels; iTrack++) {
-            //     const sab = exports.RingBuffer.getStorageForCapacity(
-            //         (this.audioContext.sampleRate),
-            //         Float32Array
-            //     );
-
-            //     sabs.push(sab);
-
-            //     let track = new Track(this.audioContext, this.store);
-            //     track.initialize(sab);
-
-            //     this.mixer.addChannel(track);
-            //     this.mixer.setGain(iTrack, 1 / numChannels);
-
-            //     this.tracks.push(track);
-
-            //     track.connectToOutput(masterGain);
-
-            //     promises.push(track.loadFileAsClip(trackModel.tracks[iTrack].clips[0].fileName));
-
-            //     for(let i = 0; i < 10; i++) {
-            //         track.addPlugin(pluginCollection.get('LoadGeneratorJS'));
-            //     }
-            // }
 
             // await Promise.all(promises);
             // this.setupAudioReader(sabs);
@@ -118,12 +90,11 @@ const audioEnginePrototype = {
         this.sabs.push(sab);
 
         let track = new Track(this.audioContext, this.store);
-        track.initialize(sab);
 
-        this.mixer.addChannel(track);
-        this.mixer.setGain(this.tracks.length, options.gain);
-
-        track.connectToOutput(this.masterGain);
+        track.initialize(sab).then(()=>{
+            track.setGain(options.gain);
+            track.connectToOutput(this.masterGain);
+        });
 
         this.tracks.push(track);
     },
@@ -141,8 +112,16 @@ const audioEnginePrototype = {
 
     async addFileToTrack(trackId, fileName) {
         let track = this.findTrack(trackId);
-        console.log(track);
         await track.loadFileAsClip(fileName);
+    },
+
+    async insertPluginToTrack(trackId, pluginURL){
+        let track = this.findTrack(trackId);
+        return await track.addPlugin(pluginURL);
+    },
+
+    setParameterValue(trackId, pluginId, parameterId, value) {
+        this.tracks[trackId].setParameterValue(pluginId, parameterId, value);
     },
 
     changeProcessingLoad(newLoad = -1) {
@@ -180,7 +159,6 @@ function AudioEngine() {
     this.tracks = [];
     this.sabs = [];
 
-    this.mixer = new Mixer();
     this.masterGain = null;
 }
 

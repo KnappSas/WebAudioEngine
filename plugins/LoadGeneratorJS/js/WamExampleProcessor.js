@@ -63,7 +63,7 @@ const getWamExampleProcessor = (moduleId) => {
 			let load = this._parameterInterpolators.load.values[startSample];
 			load = load <= 0 ? 0.001 : load;
 
-			let iterations = Math.floor(load * 10000);   
+			let iterations = Math.floor(load * 1000);   
 			let gain_compensation = 1 / iterations;
 			
 			for (let iChannel = 0; iChannel < output.length; iChannel++) {

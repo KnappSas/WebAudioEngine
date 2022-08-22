@@ -5,3 +5,5 @@ experiments/geckodriver.log
 /node_modules
 yarn-error.log
 yarn.lock
+/rust/target
+rust/Cargo.lock

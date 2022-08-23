@@ -15,18 +15,17 @@ class Track {
     }
 
     async initialize(sab) {
-        const p = await fetch(`${this._baseUrl}/../rust/target/wasm32-unknown-unknown/release/track_node_wasm.wasm`)
-        const wasm = await p.arrayBuffer();
-
-        this.audioWorkletNode = new AudioWorkletNode(this.audioContext, "track-processor", {
-            processorOptions: {
-                audioQueue: sab,
-                wasm: wasm,
-            },
-        });
+        // this.audioWorkletNode = new AudioWorkletNode(this.audioContext, "track-processor", {
+        //     processorOptions: {
+        //         audioQueue: sab,
+        //     },
+        // });
 
         this.gainNode = this.audioContext.createGain();
+        this.audioWorkletNode = this.audioContext.createOscillator();
         this.audioWorkletNode.connect(this.gainNode);
+
+        this.audioWorkletNode.start();
     }
 
     connectToInput(node) {

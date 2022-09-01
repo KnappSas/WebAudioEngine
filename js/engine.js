@@ -11,6 +11,8 @@ class AudioEngine {
         this.audioContext.suspend();
 
         console.log("audioContext.sampleRate: ", this.audioContext.sampleRate);
+        console.log("audioContext.baseLatency: ", this.audioContext.baseLatency);
+        console.log("audioContext.outputLatency: ", this.audioContext.outputLatency);
 
         this.store = new AudioStore(this.audioContext);
         this.store.init();
@@ -20,6 +22,8 @@ class AudioEngine {
         this.sabs = [];
 
         this.masterGain = null;
+
+        this.currentDeviceId = "";
 
         const request = new XMLHttpRequest();
         request.open("GET", "../audio/sine_-12dB.wav");
@@ -56,6 +60,42 @@ class AudioEngine {
     }
 
     async initialize() {
+        // ask for devices on startup to get permission from the user 
+        // to fill input device list
+        const device = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                deviceId: Track.INPUT_DEVICE_ID,
+                channelCount: 2,
+                echoCancellation: false,
+                autoGainControl: false,
+                noiseSuppression: false,
+                latency: 0,
+            },
+        });
+
+        device.getTracks().forEach((track) => {
+            this.currentDeviceId = track.getSettings().deviceId;
+        });
+
+        Track.INPUT_DEVICE_ID = this.currentDeviceId;
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const deviceSelector = document.getElementById("input-device-selector");
+        devices.forEach((device) => {
+            let opt = document.createElement("option");
+            opt.value = device.deviceId;
+            opt.innerHTML = device.label;
+            console.log(device);
+
+            deviceSelector.appendChild(opt);
+        });
+
+        deviceSelector.onchange = () => {
+            console.log(`selected audio device id: ${deviceSelector.value} label: ${deviceSelector.options[deviceSelector.selectedIndex].label}`);
+        };
+
+        deviceSelector.value = this.currentDeviceId;
+
         if (this.audioContext.audioWorklet === undefined) {
             log("No AudioWorklet.");
         } else {

@@ -14,7 +14,7 @@ const getProcessor = (moduleId) => {
     class Processor extends WamProcessor {
         constructor(options) {
             super(options);
-            this.threshold = 0.1;
+            this.threshold = 0.05;
             this.state = States.running;
 
             const cyclesPerSample = 440.0 / sampleRate;

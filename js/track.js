@@ -1,6 +1,7 @@
 class Track {
     static decodedFileNames = [];
     static ID = 0;
+    static INPUT_DEVICE_ID = "";
 
     static BUFFER = null;
 
@@ -179,14 +180,19 @@ class Track {
     async armForRecord() {
         // this will also activate something like 'monitoring' first,
         // not sure if recording without monitor works (?)
+
         const device = await navigator.mediaDevices.getUserMedia({
             audio: {
+                deviceId: Track.INPUT_DEVICE_ID,
+                channelCount: 2,
                 echoCancellation: false,
                 autoGainControl: false,
                 noiseSuppression: false,
                 latency: 0,
             },
         });
+
+        console.log("device: ", device.getTracks()[0].getSettings());
 
         this.inputNode = this.audioContext.createMediaStreamSource(device);
 

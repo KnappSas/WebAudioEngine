@@ -1,0 +1,11 @@
+{
+    "name": "LatencyMeasurer",
+    "vendor": "WebAudioModule",
+    "description": "Simple WAM instrument for latency measuring",
+    "version": "1.0.0",
+    "apiVersion": "2.0.0",
+    "keywords": [],
+    "website": "",
+    "hasAudioInput": true,
+	"hasAudioOutput": true
+}

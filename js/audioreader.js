@@ -33,7 +33,8 @@ onmessage = e => {
                 const taskConfig = {
                     tracks: tracks.slice(iTrack, tracks.length),
                     bufferSize: bufferSize,
-                    sabs: e.data.sabs.slice(iTrack, tracks.length)
+                    sabs: e.data.sabs.slice(iTrack, tracks.length),
+                    sampleRate: e.data.sampleRate
                 }
 
                 await startPreloading(taskConfig);

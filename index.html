@@ -3,7 +3,7 @@
 
 <head>
     <link rel="shortcut icon" href="#">
-    <title>Audio Engine Prototype</title>
+    <title>Audio Engine Prototype Client</title>
 </head>
 
 <body>
@@ -16,18 +16,9 @@
                 test signal from IndexedDB
                 or select 'Band' to playback actual stems from a band.
                 </a></p>
-            <!-- <button id="track-1">1</button>
-            <button id="track-2">2</button>
-            <button id="track-16">16</button>
-            <button id="track-32">32</button>
-            <button id="track-64">64</button>
-            <button id="track-128">128</button>
-            <button id="track-256">256</button>
-            <button id="track-band">Band</button> -->
-            <!-- <button id="debug" onclick="debug()">Debug</button> -->
         </section>
-        <!-- <section>
-            <h4 style="margin-bottom: 5px; color: #888">Audio processing language</h4>
+        <section>
+            <h4 style="margin-bottom: 5px; color: #888">Plug-in audio processing language</h4>
             <p style="font-size: 0.7em; color: #999">Select which language is used
                 for the load generation.
                 </a></p>
@@ -36,29 +27,33 @@
                 <label style="font-size: 0.8em;" for="choice-js">JavaScript</label>
             </div>
             <div>
-                <input type="radio" id="choice-wasm" name="lang" value="wasm"
-                    onchange="changeProcessingLanguage('wasm')" />
-                <label style="font-size: 0.8em;" for="choice-wasm">WebAssembly (faster)</label>
+                <input type="radio" id="choice-wasm" name="lang" value="wasm" onchange="changeProcessingLanguage('wasm')" />
+                <label style="font-size: 0.8em;" for="choice-wasm">WebAssembly</label>
             </div>
         </section>
         <section>
-            <h4 style="margin-bottom: 5px; color: #888">Parameters</h4>
-            <p style="font-size: 0.7em; color: #999">...</a></p>
+            <h4 style="margin-bottom: 5px; color: #888">Load Parameter</h4>
+            <p style="font-size: 0.7em; color: #999">Applies this load to all plug-ins inserted into audio tracks.</a></p>
             <div style="display: flex;flex-flow: row;align-items: center;">
-                <input type="range" id="load-slider" min="0" max="50" step="1.0" value="1"
-                    onchange="changeProcessingLoad()" />
+                <input type="range" id="load-slider" min="0" max="1000" step="1.0" value="1" onchange="changeProcessingLoad()" />
                 <label id="load-slider-label" style="font-size: 0.8em;text-align: center;" for="load-slider"></label>
             </div>
-            <h4 style="margin-bottom: 5px; color: #888">Presets</h4>
-            <p style="font-size: 0.7em; color: #999">...</a></p>
+            <h5 style="margin-bottom: 5px; color: rgb(117, 117, 117)">Extra options</h4>
+            <p style="font-size: 0.7em; color: #999">These are options to either call a JavaScript function <b>sqrt()</b> for each audio buffer or for each sample of the audio block to put extra pressure on the audio processing.</a></p>
             <div>
-                <button id="load-0" onclick="changeProcessingLoad(0)">0</button>
-                <button id="load-1" onclick="changeProcessingLoad(1)">1</button>
-                <button id="load-10" onclick="changeProcessingLoad(10)">10</button>
-                <button id="load-25" onclick="changeProcessingLoad(25)">25</button>
-                <button id="load-50" onclick="changeProcessingLoad(50)">50</button>
+                <input type="radio" id="choice-none" name="option" value="none" onchange="addOption('none')" />
+                <label style="font-size: 0.8em;" for="choice-none">None</label>
             </div>
-        </section> -->
+            <div>
+                <input type="radio" id="choice-sqrt-block" name="option" value="sqrt-block" onchange="addOption('sqrt-block')" />
+                <label style="font-size: 0.8em;" for="choice-sqrt-block">sqrt Block</label>
+            </div>
+            <div>
+                <input type="radio" id="choice-sqrt-samples" name="option" value="sqrt-samples" onchange="addOption('sqrt-samples')" />
+                <label style="font-size: 0.8em;" for="choice-sqrt-samples">sqrt Samples</label>
+            </div>
+        </section>
+        <audio controls></audio>
         <script>
             exports = {};
         </script>

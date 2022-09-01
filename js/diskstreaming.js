@@ -1,4 +1,4 @@
-async function setupWorker(workerURL, tracks, sabs, nWorkers) {
+async function setupWorker(workerURL, tracks, sabs, nWorkers, sampleRate) {
     const nTracks = tracks.length;
 
     let tracksPerWorker = Math.floor(nTracks / nWorkers);
@@ -14,6 +14,7 @@ async function setupWorker(workerURL, tracks, sabs, nWorkers) {
                 command: "init",
                 sabs: sabs.slice(iTrackStart, iTrackEnd),
                 tracks: tracks.slice(iTrackStart, iTrackEnd),
+                sampleRate: sampleRate
             });
 
             worker.onmessage = e => {

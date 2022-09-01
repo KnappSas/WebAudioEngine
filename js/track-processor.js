@@ -15,11 +15,17 @@ class TrackProcessor extends AudioWorkletProcessor {
     }
 
     process(inputs, outputs, parameters) {
+        const input = inputs[0];
         // mono buffer with 128 samples
         this._audio_reader.dequeue(this.buffer);
         for (let iOutput = 0; iOutput < outputs.length; iOutput++) {
             for (let iChannel = 0; iChannel < outputs[iOutput].length; iChannel++) {
-                outputs[iOutput][iChannel].set(this.buffer);
+                for(let iSample = 0; iSample < outputs[iOutput][iChannel].length; iSample++) {
+                    //outputs[iOutput][iChannel][iSample] = this.buffer[iSample];
+                    if(input.length) {
+                        outputs[iOutput][iChannel][iSample] = input[iChannel % input.length][iSample];
+                    }
+                }
             }
         }
 

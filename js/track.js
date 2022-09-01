@@ -2,30 +2,38 @@ class Track {
     static decodedFileNames = [];
     static ID = 0;
 
+    static BUFFER = null;
+
     constructor(audioContext, store) {
         this.audioContext = audioContext;
         this.store = store;
-        this.audioWorkletNode = null;
+        this.recorder = null;
+        this.recorderNode = null;
+        this.chunks = [];
+        this.inputNode = null;
+
+        this.trackNode = null;
         this.gainNode = null;
         this.model = {
-            clips: []
+            clips: [],
         };
         this.plugins = [];
         this.id = Track.ID++;
     }
 
-    async initialize(sab) {
-        // this.audioWorkletNode = new AudioWorkletNode(this.audioContext, "track-processor", {
-        //     processorOptions: {
-        //         audioQueue: sab,
-        //     },
-        // });
+    initialize(sab) {
+        this.trackNode = new AudioWorkletNode(
+            this.audioContext,
+            "track-processor",
+            {
+                processorOptions: {
+                    audioQueue: sab,
+                },
+            }
+        );
 
         this.gainNode = this.audioContext.createGain();
-        this.audioWorkletNode = this.audioContext.createOscillator();
-        this.audioWorkletNode.connect(this.gainNode);
-
-        this.audioWorkletNode.start();
+        this.trackNode.connect(this.gainNode);
     }
 
     connectToInput(node) {
@@ -45,23 +53,29 @@ class Track {
             if (Track.decodedFileNames.includes(fileName)) {
                 resolve();
             } else {
-                var request = new XMLHttpRequest();
-                request.open('GET', fileName, true);
-                request.responseType = 'arraybuffer';
+                let request = new XMLHttpRequest();
+                request.open("GET", fileName, true);
+                request.responseType = "arraybuffer";
                 request.onload = () => {
                     let audioData = request.response;
-                    this.audioContext.decodeAudioData(audioData, (buffer) => {
-                        this.store.saveAudioBuffer(fileName, buffer).then(metadata => {
-                            // duration = metadata.duration;
-                            resolve();
-                        });
-                    },
-
-                        e => {
-                            console.log("Error with decoding audio data" + e.err);
-                            reject()
-                        });
-                }
+                    this.audioContext.decodeAudioData(
+                        audioData,
+                        (buffer) => {
+                            this.store
+                                .saveAudioBuffer(fileName, buffer)
+                                .then((metadata) => {
+                                    // duration = metadata.duration;
+                                    resolve();
+                                });
+                        },
+                        (e) => {
+                            console.log(
+                                "Error with decoding audio data" + e.err
+                            );
+                            reject();
+                        }
+                    );
+                };
 
                 request.onerror = reject;
                 request.send();
@@ -71,44 +85,81 @@ class Track {
         });
     }
 
-    async loadFileAsClip(fileName, position, startInFile, endInFile) {
+    async loadFileAsClip(fileName, position) {
         const clip = {
             fileName: fileName,
             position: position,
-            startInFile: startInFile,
-            endInFile: endInFile
+            startInFile: 0,
+            endInFile: -1,
         };
 
         this.model.clips.push(clip);
         await this.loadAudioFile(fileName);
     }
 
-    setParameterValue(pluginId, parameterId, value) {
-        this.plugins[pluginId].audioNode.setParameterValues({
-            load: {
+    #findPlugin(pluginId) {
+        for (let i = 0; i < this.plugins.length; i++) {
+            let plugin = this.plugins[i];
+            if (plugin.instanceId === pluginId) {
+                return plugin;
+            }
+        }
+
+        return null;
+    }
+
+    setParameterValue(pluginHandle, parameterId, value) {
+        let plugin = this.#findPlugin(pluginHandle.pluginId);
+        if (!plugin) {
+            console.error("setParameterValue: plugin null or undefined");
+            return;
+        }
+
+        plugin.audioNode.setParameterValues({
+            [parameterId]: {
                 id: parameterId,
-                value: parseFloat(value),
+                value: value,
                 normalized: false,
             },
         });
     }
 
     async addPlugin(url) {
-        const { default: apiVersion } = await import('../node_modules/@webaudiomodules/api/src/version.js');
-        const { default: addFunctionModule } = await import("../node_modules/@webaudiomodules/sdk/src/addFunctionModule.js");
-        const { default: initializeWamEnv } = await import("../node_modules/@webaudiomodules/sdk/src/WamEnv.js");
-        await addFunctionModule(this.audioContext.audioWorklet, initializeWamEnv, apiVersion);
-        const { default: initializeWamGroup } = await import("../node_modules/@webaudiomodules/sdk/src/WamGroup.js");
-        const hostGroupId = 'webaudioengine-test-host';
+        const { default: apiVersion } = await import(
+            "../node_modules/@webaudiomodules/api/src/version.js"
+        );
+        const { default: addFunctionModule } = await import(
+            "../node_modules/@webaudiomodules/sdk/src/addFunctionModule.js"
+        );
+        const { default: initializeWamEnv } = await import(
+            "../node_modules/@webaudiomodules/sdk/src/WamEnv.js"
+        );
+        await addFunctionModule(
+            this.audioContext.audioWorklet,
+            initializeWamEnv,
+            apiVersion
+        );
+        const { default: initializeWamGroup } = await import(
+            "../node_modules/@webaudiomodules/sdk/src/WamGroup.js"
+        );
+        const hostGroupId = "webaudioengine-test-host";
         const hostGroupKey = performance.now().toString();
-        await addFunctionModule(this.audioContext.audioWorklet, initializeWamGroup, hostGroupId, hostGroupKey);
+        await addFunctionModule(
+            this.audioContext.audioWorklet,
+            initializeWamGroup,
+            hostGroupId,
+            hostGroupKey
+        );
 
         const { default: PluginFactory } = await import(url);
-        const pluginInstance = await PluginFactory.createInstance(hostGroupId, this.audioContext);
+        const pluginInstance = await PluginFactory.createInstance(
+            hostGroupId,
+            this.audioContext
+        );
 
         let lastPluginInChain = null;
         if (this.plugins.length === 0) {
-            lastPluginInChain = this.audioWorkletNode;
+            lastPluginInChain = this.trackNode;
         } else {
             lastPluginInChain = this.plugins[this.plugins.length - 1].audioNode;
         }
@@ -118,10 +169,81 @@ class Track {
         pluginInstance.audioNode.connect(this.gainNode);
 
         this.plugins.push(pluginInstance);
+        return { trackId: this.id, pluginId: pluginInstance.instanceId };
 
-        return this.plugins.length - 1;
         // IF GUI!
         //const domNode = await loadGeneratorPluginInstance.createGui();
         //mount.appendChild(domNode);
     }
-};
+
+    async armForRecord() {
+        // this will also activate something like 'monitoring' first,
+        // not sure if recording without monitor works (?)
+        const device = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: false,
+                autoGainControl: false,
+                noiseSuppression: false,
+                latency: 0,
+            },
+        });
+
+        this.inputNode = this.audioContext.createMediaStreamSource(device);
+
+        // this.inputNode = this.audioContext.createBufferSource();
+        // this.inputNode.buffer = Track.buffer;
+        // this.inputNode.start();
+        this.inputNode.connect(this.trackNode);
+
+        // next add record node...
+        // this.recorderNode = this.audioContext.createMediaStreamDestination();
+        // this.inputNode.connect(this.recorderNode);
+
+        // console.log("stream", this.recorderNode.stream);
+        // this.recorder = new MediaRecorder(this.recorderNode.stream, {mimeType: "audio/ogg; codecs=opus"});
+        // this.recorder.ondataavailable = (evt) => {
+        //     console.log("ondataavailable: ", performance.now());
+        //     // Push each chunk (blobs) in an array
+        //     console.log(evt.data);
+        //     this.chunks.push(evt.data);
+        // };
+
+        // this.recorder.onstart = (evt) => {
+        //     let evttime = evt.timeStamp;
+        //     let startTime = performance.now();
+
+        //     console.log("evttimestamp: ", evttime);
+        //     console.log("onstart call time: ", startTime);
+        //     console.log(
+        //         "elapsed time: event to call: ",
+        //         startTime - evt.timeStamp
+        //     );
+        // };
+
+        // this.recorder.onstop = (evt) => {
+        //     console.log("onstop: ", performance.now());
+
+        //     // Make blob out of our blobs, and open it.
+        //     const blob = new Blob(this.chunks, {
+        //         type: "audio/ogg; codecs=opus",
+        //     });
+        //     document.querySelector("audio").src = URL.createObjectURL(blob);
+        //     // need to save it to audio store
+        //     this.chunks = [];
+        // };
+    }
+
+    startRecord() {
+        if (!this.recorder) return;
+        if (this.recorder.state === "inactive") {
+            this.recorder.start();
+        }
+    }
+
+    stopRecord() {
+        if (!this.recorder) return;
+        if (this.recorder.state === "recording") {
+            this.recorder.stop();
+        }
+    }
+}

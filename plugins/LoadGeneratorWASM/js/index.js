@@ -33,7 +33,8 @@ export default class WamExamplePlugin extends WebAudioModule {
 		const wamExampleNode = new WamExampleNode(this, {});
 		await wamExampleNode._initialize();
 
-		fetch(`${this._baseUrl}/../rust/target/wasm32-unknown-unknown/release/load_wasm.wasm`)
+		// fetch(`${this._baseUrl}/../rust/target/wasm32-unknown-unknown/release/load_wasm.wasm`)
+		fetch(`${this._baseUrl}/../rust/pkg/load_wasm_bg.wasm`)
 			.then(r => r.arrayBuffer())
 			.then(r => {
 				wamExampleNode.port.postMessage({ type: 'load-wasm-module', data: r });

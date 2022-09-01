@@ -1,10 +1,9 @@
 async function startPreloading(taskConfig) {
-    console.log(taskConfig);
     const CHUNK_SIZE = 128;
     const chunkSize = CHUNK_SIZE;
 
     const tracks = taskConfig.tracks;
-    const duration = taskConfig.bufferSize / 44100;
+    const duration = taskConfig.bufferSize / taskConfig.sampleRate;
     const inc = duration;
 
     let chunk = new Float32Array(chunkSize);

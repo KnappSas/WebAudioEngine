@@ -8,7 +8,7 @@ module.exports = {
     },
     experiments: {
         topLevelAwait: true,
-        outputModule: true
+        outputModule: true,
     },
     mode: 'development',
     output: {
@@ -40,5 +40,5 @@ module.exports = {
                 { from: `./js/descriptor.json`, to: './' },
             ]
         }),
-    ]
+    ],
 };

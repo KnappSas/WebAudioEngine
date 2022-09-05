@@ -81,11 +81,11 @@ function changeProcessingLoad(load = -1) {
 }
 
 function startAudio() {
-    // audioEngine.play();
-    audioEngine.armForRecord(trackHandles[0]).then(() => {
-        audioEngine.play();
-        // audioEngine.record();
-    });
+    audioEngine.play();
+    // audioEngine.armForRecord(trackHandles[0]).then(() => {
+    //     audioEngine.record();
+    //     //audioEngine.play();
+    // });
 }
 
 function stopAudio() {
@@ -130,7 +130,7 @@ function initializeApp() {
     if (nTracks === null) {
         document.getElementById("startBtn").disabled = true;
     } else {
-        audioEngine.initialize().then(() => {
+        audioEngine.initialize(PlaybackMode.kStreamWithAudioWorkletNode).then(() => {
             const trackModel = createTrackConfig(nTracks);
             const numTracks = trackModel.tracks.length;
 
@@ -147,34 +147,34 @@ function initializeApp() {
                         0
                     )
                     .then(() => {
-                        audioEngine.insertPluginToTrack(
-                            handle,
-                            pluginCollection.get("LatencyMeasurer")
-                        );
+                        // audioEngine.insertPluginToTrack(
+                        //     handle,
+                        //     pluginCollection.get("LatencyMeasurer")
+                        // );
 
-                        // for (let i = 0; i < nPlugins; i++) {
-                        //     audioEngine
-                        //         .insertPluginToTrack(
-                        //             handle,
-                        //             pluginCollection.get("LoadGeneratorWASM")
-                        //         )
-                        //         .then((pluginHandle) => {
-                        //             pluginHandles.push(pluginHandle);
+                        for (let i = 0; i < nPlugins; i++) {
+                            audioEngine
+                                .insertPluginToTrack(
+                                    handle,
+                                    pluginCollection.get("LoadGeneratorWASM")
+                                )
+                                .then((pluginHandle) => {
+                                    pluginHandles.push(pluginHandle);
 
-                        //             audioEngine.setParameterValue(
-                        //                 pluginHandle,
-                        //                 "use_wasm",
-                        //                 lang === "wasm"
-                        //             );
+                                    audioEngine.setParameterValue(
+                                        pluginHandle,
+                                        "use_wasm",
+                                        lang === "wasm"
+                                    );
 
-                        //             const load = loadSlider.value / 1000;
-                        //             audioEngine.setParameterValue(
-                        //                 pluginHandle,
-                        //                 "load",
-                        //                 load
-                        //             );
-                        //         });
-                        // }
+                                    const load = loadSlider.value / 1000;
+                                    audioEngine.setParameterValue(
+                                        pluginHandle,
+                                        "load",
+                                        load
+                                    );
+                                });
+                        }
                     });
             }
 

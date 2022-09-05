@@ -5,17 +5,14 @@
 // import Track from "./track.js";
 // import URLFromFiles from "../utils.js";
 
+const PlaybackMode = {
+    kScheduleFromMainThread: 0,
+    kStreamWithAudioWorkletNode: 1
+};
+
 class AudioEngine {
     constructor() {
-        this.audioContext = new AudioContext();
-        this.audioContext.suspend();
-
-        console.log("audioContext.sampleRate: ", this.audioContext.sampleRate);
-        console.log("audioContext.baseLatency: ", this.audioContext.baseLatency);
-        console.log("audioContext.outputLatency: ", this.audioContext.outputLatency);
-
-        this.store = new AudioStore(this.audioContext);
-        this.store.init();
+        this.playbackMode = PlaybackMode.kStreamWithAudioWorkletNode;
 
         this.decodedFileNames = [];
         this.tracks = [];
@@ -24,19 +21,6 @@ class AudioEngine {
         this.masterGain = null;
 
         this.currentDeviceId = "";
-
-        const request = new XMLHttpRequest();
-        request.open("GET", "../audio/sine_-12dB.wav");
-        request.responseType = "arraybuffer";
-        request.onload = () => {
-            console.log("onload");
-            let undecodedAudio = request.response;
-            this.audioContext.decodeAudioData(undecodedAudio, (data) => {
-                Track.buffer = data;
-                console.log("buffer loaded");
-            });
-        };
-        request.send();
     }
 
     async #setupAudioReader(sabs) {
@@ -59,42 +43,71 @@ class AudioEngine {
         await setupWorker(url, trackModels, sabs, 1, this.audioContext.sampleRate);
     }
 
-    async initialize() {
-        // ask for devices on startup to get permission from the user 
-        // to fill input device list
-        const device = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                deviceId: Track.INPUT_DEVICE_ID,
-                channelCount: 2,
-                echoCancellation: false,
-                autoGainControl: false,
-                noiseSuppression: false,
-                latency: 0,
-            },
-        });
+    async initialize(playbackMode = kStreamWithAudioWorkletNode) {
+        this.playbackMode = playbackMode;
 
-        device.getTracks().forEach((track) => {
-            this.currentDeviceId = track.getSettings().deviceId;
-        });
+        this.audioContext = new AudioContext();
+        this.audioContext.suspend();
 
-        Track.INPUT_DEVICE_ID = this.currentDeviceId;
+        console.log("audioContext.sampleRate: ", this.audioContext.sampleRate);
+        console.log("audioContext.baseLatency: ", this.audioContext.baseLatency);
+        console.log("audioContext.outputLatency: ", this.audioContext.outputLatency);
 
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const deviceSelector = document.getElementById("input-device-selector");
-        devices.forEach((device) => {
-            let opt = document.createElement("option");
-            opt.value = device.deviceId;
-            opt.innerHTML = device.label;
-            console.log(device);
+        // const request = new XMLHttpRequest();
+        // request.open("GET", "../audio/sine_-12dB.wav");
+        // request.responseType = "arraybuffer";
+        // request.onload = () => {
+        //     console.log("onload");
+        //     let undecodedAudio = request.response;
+        //     this.audioContext.decodeAudioData(undecodedAudio, (data) => {
+        //         Track.buffer = data;
+        //         console.log("buffer loaded");
+        //     });
+        // };
+        // request.send();
 
-            deviceSelector.appendChild(opt);
-        });
+        this.store = new AudioStore(this.audioContext);
+        this.store.init();
 
-        deviceSelector.onchange = () => {
-            console.log(`selected audio device id: ${deviceSelector.value} label: ${deviceSelector.options[deviceSelector.selectedIndex].label}`);
-        };
+        if (this.playbackMode === PlaybackMode.kScheduleFromMainThread) {
+            this.streamCoordinator = new StreamCoordinator([], this.store, this.audioContext);
+        }
 
-        deviceSelector.value = this.currentDeviceId;
+        // // ask for devices on startup to get permission from the user 
+        // // to fill input device list
+        // const device = await navigator.mediaDevices.getUserMedia({
+        //     audio: {
+        //         deviceId: Track.INPUT_DEVICE_ID,
+        //         channelCount: 2,
+        //         echoCancellation: false,
+        //         autoGainControl: false,
+        //         noiseSuppression: false,
+        //         latency: 0,
+        //     },
+        // });
+
+        // device.getTracks().forEach((track) => {
+        //     this.currentDeviceId = track.getSettings().deviceId;
+        // });
+
+        // Track.INPUT_DEVICE_ID = this.currentDeviceId;
+
+        // const devices = await navigator.mediaDevices.enumerateDevices();
+        // const deviceSelector = document.getElementById("input-device-selector");
+        // devices.forEach((device) => {
+        //     let opt = document.createElement("option");
+        //     opt.value = device.deviceId;
+        //     opt.innerHTML = device.label;
+        //     console.log(device);
+
+        //     deviceSelector.appendChild(opt);
+        // });
+
+        // deviceSelector.onchange = () => {
+        //     console.log(`selected audio device id: ${deviceSelector.value} label: ${deviceSelector.options[deviceSelector.selectedIndex].label}`);
+        // };
+
+        // deviceSelector.value = this.currentDeviceId;
 
         if (this.audioContext.audioWorklet === undefined) {
             log("No AudioWorklet.");
@@ -126,7 +139,14 @@ class AudioEngine {
     }
 
     async play() {
-        // await this.#setupAudioReader(this.sabs);
+        if (this.playbackMode === PlaybackMode.kStreamWithAudioWorkletNode) {
+            await this.#setupAudioReader(this.sabs);
+        }
+        else if (this.playbackMode == PlaybackMode.kScheduleFromMainThread) {
+            await this.streamCoordinator.load();
+            this.streamCoordinator.stream(0);
+        }
+
         this.audioContext.resume();
     }
 
@@ -140,13 +160,13 @@ class AudioEngine {
             this.tracks[i].startRecord();
         }
 
-        if(this.audioContext.state === "suspended") {
-            let resumeStart = performance.now();
-            this.audioContext.resume().then(() => {
-                let resumeEnd = performance.now();
-                console.log("resume time: ", resumeEnd-resumeStart);
-            });
-        }
+        // if(this.audioContext.state === "suspended") {
+        //     let resumeStart = performance.now();
+        //     this.audioContext.resume().then(() => {
+        //         let resumeEnd = performance.now();
+        //         console.log("resume time: ", resumeEnd-resumeStart);
+        //     });
+        // }
     }
 
     stopRecord() {
@@ -156,16 +176,21 @@ class AudioEngine {
     }
 
     addTrack(options) {
-        const sab = exports.RingBuffer.getStorageForCapacity(
-            this.audioContext.sampleRate,
-            Float32Array
-        );
+        let track = null;
+        if (this.playbackMode === PlaybackMode.kStreamWithAudioWorkletNode) {
+            const sab = exports.RingBuffer.getStorageForCapacity(
+                this.audioContext.sampleRate,
+                Float32Array
+            );
 
-        this.sabs.push(sab);
+            this.sabs.push(sab);
+            track = new Track(this.audioContext, this.store);
+            track.initialize(sab);
+        } else if(this.playbackMode === PlaybackMode.kScheduleFromMainThread) {
+            track = new Track(this.audioContext, this.store, this.streamCoordinator);
+            track.initialize();
+        }
 
-        let track = new Track(this.audioContext, this.store);
-
-        track.initialize(sab);
         track.setGain(options.gain);
         track.connectToOutput(this.masterGain);
 

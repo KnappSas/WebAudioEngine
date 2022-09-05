@@ -5,9 +5,10 @@ class Track {
 
     static BUFFER = null;
 
-    constructor(audioContext, store) {
+    constructor(audioContext, store, streamCoordinator = null) {
         this.audioContext = audioContext;
         this.store = store;
+        this.streamCoordinator = streamCoordinator;
         this.recorder = null;
         this.recorderNode = null;
         this.chunks = [];
@@ -22,16 +23,21 @@ class Track {
         this.id = Track.ID++;
     }
 
-    initialize(sab) {
-        this.trackNode = new AudioWorkletNode(
-            this.audioContext,
-            "track-processor",
-            {
-                processorOptions: {
-                    audioQueue: sab,
-                },
-            }
-        );
+    initialize(sab = null) {
+        if (sab) {
+            this.trackNode = new AudioWorkletNode(
+                this.audioContext,
+                "track-processor",
+                {
+                    processorOptions: {
+                        audioQueue: sab,
+                    },
+                }
+            );
+        } else {
+            // gainNode with gain-value 1 will be optimized out at runtime
+            this.trackNode = this.audioContext.createGain();
+        }
 
         this.gainNode = this.audioContext.createGain();
         this.trackNode.connect(this.gainNode);
@@ -95,7 +101,13 @@ class Track {
         };
 
         this.model.clips.push(clip);
-        await this.loadAudioFile(fileName);
+
+        if (this.streamCoordinator) {
+            const streamer = this.streamCoordinator.addURL(clip.fileName);
+            streamer.gain.connect(this.trackNode);
+        } else if (this.store) {
+            await this.loadAudioFile(fileName);
+        }
     }
 
     #findPlugin(pluginId) {
@@ -194,49 +206,53 @@ class Track {
 
         console.log("device: ", device.getTracks()[0].getSettings());
 
-        this.inputNode = this.audioContext.createMediaStreamSource(device);
-
-        // this.inputNode = this.audioContext.createBufferSource();
-        // this.inputNode.buffer = Track.buffer;
-        // this.inputNode.start();
+        // this.inputNode = this.audioContext.createMediaStreamSource(device);
+        this.inputNode = this.audioContext.createBufferSource();
+        this.inputNode.buffer = Track.buffer;
+        this.inputNode.start();
         this.inputNode.connect(this.trackNode);
 
         // next add record node...
-        // this.recorderNode = this.audioContext.createMediaStreamDestination();
-        // this.inputNode.connect(this.recorderNode);
+        this.recorderNode = this.audioContext.createMediaStreamDestination();
+        this.inputNode.connect(this.recorderNode);
 
-        // console.log("stream", this.recorderNode.stream);
-        // this.recorder = new MediaRecorder(this.recorderNode.stream, {mimeType: "audio/ogg; codecs=opus"});
-        // this.recorder.ondataavailable = (evt) => {
-        //     console.log("ondataavailable: ", performance.now());
-        //     // Push each chunk (blobs) in an array
-        //     console.log(evt.data);
-        //     this.chunks.push(evt.data);
-        // };
+        console.log("stream", this.recorderNode.stream);
+        this.recorder = new MediaRecorder(this.recorderNode.stream, { mimeType: "audio/ogg; codecs=opus" });
+        this.recorder.ondataavailable = (evt) => {
+            console.log("ondataavailable: ", performance.now());
+            // Push each chunk (blobs) in an array
+            console.log(evt.data);
+            this.chunks.push(evt.data);
+        };
 
-        // this.recorder.onstart = (evt) => {
-        //     let evttime = evt.timeStamp;
-        //     let startTime = performance.now();
+        this.recorder.onstart = (evt) => {
+            let evttime = evt.timeStamp;
+            let startTime = performance.now();
 
-        //     console.log("evttimestamp: ", evttime);
-        //     console.log("onstart call time: ", startTime);
-        //     console.log(
-        //         "elapsed time: event to call: ",
-        //         startTime - evt.timeStamp
-        //     );
-        // };
+            let resumeStart = performance.now();
+            this.audioContext.resume().then(() => {
+                let resumeEnd = performance.now();
+                console.log("audioContext.resume time", resumeEnd - resumeStart);
+            });
+            console.log("evttimestamp: ", evttime);
+            console.log("onstart call time: ", startTime);
+            console.log(
+                "elapsed time: event to call: ",
+                startTime - evt.timeStamp
+            );
+        };
 
-        // this.recorder.onstop = (evt) => {
-        //     console.log("onstop: ", performance.now());
+        this.recorder.onstop = (evt) => {
+            console.log("onstop: ", performance.now());
 
-        //     // Make blob out of our blobs, and open it.
-        //     const blob = new Blob(this.chunks, {
-        //         type: "audio/ogg; codecs=opus",
-        //     });
-        //     document.querySelector("audio").src = URL.createObjectURL(blob);
-        //     // need to save it to audio store
-        //     this.chunks = [];
-        // };
+            // Make blob out of our blobs, and open it.
+            const blob = new Blob(this.chunks, {
+                type: "audio/ogg; codecs=opus",
+            });
+            document.querySelector("audio").src = URL.createObjectURL(blob);
+            // need to save it to audio store
+            this.chunks = [];
+        };
     }
 
     startRecord() {

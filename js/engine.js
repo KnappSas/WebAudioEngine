@@ -6,8 +6,8 @@
 // import URLFromFiles from "../utils.js";
 
 const PlaybackMode = {
-    kScheduleFromMainThread: 0,
-    kStreamWithAudioWorkletNode: 1
+    kScheduleFromMainThread: "AudioBufferSourceNode",
+    kStreamWithAudioWorkletNode: "AudioWorkletNode"
 };
 
 class AudioEngine {
@@ -41,6 +41,16 @@ class AudioEngine {
         });
 
         await setupWorker(url, trackModels, sabs, 1, this.audioContext.sampleRate);
+    }
+
+    async forcePreLoad() {
+        if (this.playbackMode === PlaybackMode.kStreamWithAudioWorkletNode) {
+            await this.#setupAudioReader(this.sabs);
+        }
+        else if (this.playbackMode === PlaybackMode.kScheduleFromMainThread) {
+            await this.streamCoordinator.load();
+            this.streamCoordinator.stream(0);
+        }
     }
 
     async initialize(playbackMode = kStreamWithAudioWorkletNode) {
@@ -139,14 +149,6 @@ class AudioEngine {
     }
 
     async play() {
-        if (this.playbackMode === PlaybackMode.kStreamWithAudioWorkletNode) {
-            await this.#setupAudioReader(this.sabs);
-        }
-        else if (this.playbackMode == PlaybackMode.kScheduleFromMainThread) {
-            await this.streamCoordinator.load();
-            this.streamCoordinator.stream(0);
-        }
-
         this.audioContext.resume();
     }
 

@@ -1,11 +1,16 @@
 document.getElementById("startBtn").onclick = startAudio;
 document.getElementById("stopBtn").onclick = stopAudio;
+
+document.getElementById("startBtn").disabled = true;
+document.getElementById("preloadBtn").disabled = true;
+
 const loadSlider = document.getElementById("load-slider");
 
 const TRACK_NUMS = [1, 2, 8, 10, 16, 32, 64, 96, 128, 256];
 
 const trackHandles = [];
 const pluginHandles = [];
+const fpsLog = [];
 
 for (let i = 0; i < TRACK_NUMS.length; i++) {
     const numTracks = TRACK_NUMS[i];
@@ -40,7 +45,7 @@ function createTrackConfig(nTracks) {
         track.clips = [];
 
         let clip = {};
-        clip.fileName = "audio/sweep.wav";
+        clip.fileName = "audio/sine_-12dB.wav";
         clip.samplePos = samplePos;
         clip.length = length;
         clip.iStartInFile = iStartInFile;
@@ -54,12 +59,17 @@ function createTrackConfig(nTracks) {
 }
 
 const reloadWithNewSettings = () => {
-    const newUrl = `${window.location.origin}${window.location.pathname}?nTracks=${window.nTracks}&lang=${window.language}&option=${window.option}`;
+    const newUrl = `${window.location.origin}${window.location.pathname}?nTracks=${window.nTracks}&lang=${window.language}&option=${window.option}&streamingMode=${window.streamingMode}&load=${parseInt(loadSlider.value/10)}&nPlugins=${window.nPlugins}`;
     window.location.href = newUrl;
 };
 
 function changeNumTracks(nTracks) {
     window.nTracks = nTracks;
+    reloadWithNewSettings();
+}
+
+function checkLoadGeneratorPlugin() {
+    window.nPlugins = document.getElementById("addLoadGeneratorPlugin").checked ? 1 : 0;
     reloadWithNewSettings();
 }
 
@@ -80,6 +90,17 @@ function changeProcessingLoad(load = -1) {
     });
 }
 
+function changeStreamingMode(mode) {
+    window.streamingMode = mode;
+    reloadWithNewSettings();
+}
+
+function preload() {
+    audioEngine.forcePreLoad().then(() => {
+        document.getElementById("startBtn").disabled = false;
+    })
+}
+
 function startAudio() {
     audioEngine.play();
     // audioEngine.armForRecord(trackHandles[0]).then(() => {
@@ -93,18 +114,34 @@ function stopAudio() {
     audioEngine.stopRecord();
 }
 
-function initializeApp() {
+async function initializeApp() {
     const urlParams = new URLSearchParams(window.location.search);
     const nTracks = urlParams.get("nTracks");
     const lang = urlParams.get("lang") || "js";
-    const option = urlParams.get("option") || "none";
+    let load = urlParams.get("load")
+    if(load) {
+        load = parseFloat(load) / 100;
+    } else {
+        load = loadSlider.value / 1000;
+    }
 
-    // const nPlugins = urlParams.get('nPlugins');
-    const nPlugins = 0;
+    loadSlider.value = parseInt(load * 1000);
+
+    const option = urlParams.get("option") || "none";
+    const streamingMode = urlParams.get("streamingMode") || "AudioWorkletNode";
+
+    let nPlugins = urlParams.get('nPlugins') || 0;
+    if(nPlugins) {
+        nPlugins = parseInt(nPlugins);
+    }
+
+    document.getElementById("addLoadGeneratorPlugin").checked = nPlugins > 0;
 
     window.nTracks = nTracks;
     window.language = lang;
     window.option = option;
+    window.streamingMode = streamingMode;
+    window.nPlugins = nPlugins;
 
     switch (lang) {
         case "wasm":
@@ -127,83 +164,130 @@ function initializeApp() {
             break;
     }
 
-    if (nTracks === null) {
+    switch (streamingMode) {
+        case "AudioWorkletNode":
+            document.getElementById("choice-audioworkletnode").checked = true;
+            break;
+        case "AudioBufferSourceNode":
+            document.getElementById("choice-audiobuffersourcenode").checked = true;
+            break;
+    }
+
+    // nTrack == null would be enough probably..
+    if (nTracks === null || nTracks === 'null') {
         document.getElementById("startBtn").disabled = true;
     } else {
-        audioEngine.initialize(PlaybackMode.kStreamWithAudioWorkletNode).then(() => {
-            const trackModel = createTrackConfig(nTracks);
-            const numTracks = trackModel.tracks.length;
+        await audioEngine.initialize(streamingMode);
 
-            const gainPerTrack = 1 / numTracks;
+        const trackModel = createTrackConfig(nTracks);
+        const numTracks = trackModel.tracks.length;
+        const gainPerTrack = 1 / numTracks;
 
-            for (let iTrack = 0; iTrack < numTracks; iTrack++) {
-                let handle = audioEngine.addTrack({ gain: gainPerTrack });
-                trackHandles.push(handle);
+        let promises = [];
+        for (let iTrack = 0; iTrack < numTracks; iTrack++) {
+            let handle = audioEngine.addTrack({ gain: gainPerTrack });
+            trackHandles.push(handle);
 
+            promises.push(audioEngine.addFileToTrack(handle, trackModel.tracks[iTrack].clips[0].fileName, 0));
+
+            // audioEngine.insertPluginToTrack(
+            //     handle,
+            //     pluginCollection.get("LatencyMeasurer")
+            // );
+
+            for (let i = 0; i < nPlugins; i++) {
                 audioEngine
-                    .addFileToTrack(
+                    .insertPluginToTrack(
                         handle,
-                        trackModel.tracks[iTrack].clips[0].fileName,
-                        0
+                        pluginCollection.get("LoadGeneratorWASM")
                     )
-                    .then(() => {
-                        // audioEngine.insertPluginToTrack(
-                        //     handle,
-                        //     pluginCollection.get("LatencyMeasurer")
-                        // );
+                    .then((pluginHandle) => {
+                        pluginHandles.push(pluginHandle);
 
-                        for (let i = 0; i < nPlugins; i++) {
-                            audioEngine
-                                .insertPluginToTrack(
-                                    handle,
-                                    pluginCollection.get("LoadGeneratorWASM")
-                                )
-                                .then((pluginHandle) => {
-                                    pluginHandles.push(pluginHandle);
+                        audioEngine.setParameterValue(
+                            pluginHandle,
+                            "use_wasm",
+                            lang === "wasm"
+                        );
 
-                                    audioEngine.setParameterValue(
-                                        pluginHandle,
-                                        "use_wasm",
-                                        lang === "wasm"
-                                    );
+                        audioEngine.setParameterValue(
+                            pluginHandle,
+                            "sqrt_block",
+                            option === "sqrt-block"
+                        );
+                        
+                        audioEngine.setParameterValue(
+                            pluginHandle,
+                            "sqrt_samples",
+                            option === "sqrt-samples"
+                        );
 
-                                    const load = loadSlider.value / 1000;
-                                    audioEngine.setParameterValue(
-                                        pluginHandle,
-                                        "load",
-                                        load
-                                    );
-                                });
-                        }
+                        audioEngine.setParameterValue(
+                            pluginHandle,
+                            "use_wasm",
+                            lang === "wasm"
+                        );
+
+                        audioEngine.setParameterValue(
+                            pluginHandle,
+                            "load",
+                            load
+                        );
                     });
             }
+        }
 
-            document.getElementById("startBtn").disabled = false;
-        });
+        await Promise.all(promises);
+        // document.getElementById("startBtn").disabled = false;
+        document.getElementById("preloadBtn").disabled = false;
     }
 }
 
 initializeApp();
 
 // document.getElementById("load-slider-label").innerHTML = "Load: 0";
+function downloadBlob(content, filename, contentType) {
+    // Create a blob
+    var blob = new Blob([content], { type: contentType });
+    var url = URL.createObjectURL(blob);
 
-// (() => {
-//     const times = [];
-//     let fps;
+    // Create a link to download it
+    var pom = document.createElement('a');
+    pom.href = url;
+    pom.setAttribute('download', filename);
+    pom.click();
+}
 
-//     function refreshLoop() {
-//         window.requestAnimationFrame(() => {
-//             const now = performance.now();
-//         while (times.length > 0 && times[0] <= now - 1000) {
-//             times.shift();
-//         }
-//         times.push(now);
-//         fps = times.length;
-//         refreshLoop();
-//     });
-//     }
-//     refreshLoop();
+function exportFpsLog() {
+    console.log(fpsLog);
+    let csv = "fps\n";
+    fpsLog.forEach((fps) => {
+        csv += `${fps}\n`;
+    });
 
-//     // output to console once per second
-//     setInterval(() => {console.log(fps);}, 1000)
-// })();
+    downloadBlob(csv, 'fps.csv', 'text/csv;charset=utf-8;')
+}
+
+(() => {
+    const times = [];
+    let fps;
+
+    function refreshLoop() {
+        window.requestAnimationFrame(() => {
+            const now = performance.now();
+            while (times.length > 0 && times[0] <= now - 1000) {
+                times.shift();
+            }
+            times.push(now);
+            fps = times.length;
+            refreshLoop();
+        });
+    }
+    refreshLoop();
+
+    // output to console once per second
+    setInterval(() => {
+        fpsLog.push(fps);
+        console.log(`fps: ${fps}`);
+    }, 1000)
+})();

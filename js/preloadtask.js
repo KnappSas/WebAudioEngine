@@ -50,7 +50,7 @@ async function startPreloading(taskConfig) {
             awl.chunkIndex = chunkIndex;
         }
 
-        setTimeout(timeout, 1);
+        setTimeout(timeout, 16);
     }
 
     timeout();

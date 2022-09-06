@@ -6,6 +6,7 @@ async function setupWorker(workerURL, tracks, sabs, nWorkers, sampleRate) {
 
     let setupAudioReaderWorker = (iWorker, nTracksPerWorker) => {
         let p = new Promise((resolve) => {
+            console.log("iWorker: ", iWorker);
             const worker = new Worker(workerURL);
             const iTrackStart = iWorker * nTracksPerWorker;
             const iTrackEnd = (iWorker + 1) * nTracksPerWorker;

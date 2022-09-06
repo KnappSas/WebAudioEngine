@@ -126,7 +126,7 @@ const getWamExampleProcessor = (moduleId) => {
 						this._inBuf[iSample] = input[iChannel % input.length][iSample];
 					}
 
-					this.loadGenerator.generate(this._inPtr, this._outPtr, output[iChannel].length, load, sqrt_samples, sqrt_block);
+					this.loadGenerator.generate(this._inPtr, this._outPtr, output[iChannel].length, load, sqrt_block, sqrt_samples);
 					output[iChannel].set(this._outBuf);
 				}
 			} else {

@@ -9,12 +9,30 @@
 <body>
     <button id="startBtn" onclick="startAudio()">Start</button>
     <button id="stopBtn" onclick="stopAudio()">Stop</button>
+    <button id="preloadBtn" onclick="preload()">Load</button>
     <div>
         <section id="device-section">
             <h4 style="margin-bottom: 5px; color: #888">Input Audio Device</h4>
             <p style="font-size: 0.7em; color: #999">Select which audio input device should be used
                 </a></p>
             <select name="input-device-selector" id="input-device-selector"></select>
+        </section>
+        <section id="stream-mode-section">
+            <h4 style="margin-bottom: 5px; color: #888">Streaming Mode</h4>
+            <p style="font-size: 0.7em; color: #999">Select if audio buffers should be scheduled using
+                <b>AudioBufferSourceNode</b> or <b>AudioWorkletNode</b>
+                </a>
+            </p>
+            <div>
+                <input type="radio" id="choice-audiobuffersourcenode" name="streaming-mode"
+                    value="AudioBufferSourceNode" onchange="changeStreamingMode('AudioBufferSourceNode')" />
+                <label style="font-size: 0.8em;" for="choice-audiobuffersourcenode">AudioBufferSourceNode</label>
+            </div>
+            <div>
+                <input type="radio" id="choice-audioworkletnode" name="streaming-mode" value="AudioWorkletNode"
+                    onchange="changeStreamingMode('AudioWorkletNode')" />
+                <label style="font-size: 0.8em;" for="choice-audioworkletnode">AudioWorkletNode</label>
+            </div>
         </section>
         <section id="track-section">
             <h4 style="margin-bottom: 5px; color: #888">Number of Tracks</h4>
@@ -24,7 +42,10 @@
                 </a></p>
         </section>
         <section>
-            <h4 style="margin-bottom: 5px; color: #888">Plug-in audio processing language</h4>
+            <h4 style="margin-bottom: 5px; color: #888">
+                <input type="checkbox" id="addLoadGeneratorPlugin" name="addLoadGeneratorPlugin" onchange="checkLoadGeneratorPlugin()">
+                <label for="addLoadGeneratorPlugin">Load Generator Plug-in</label>
+            </h4>
             <p style="font-size: 0.7em; color: #999">Select which language is used
                 for the load generation.
                 </a></p>
@@ -33,30 +54,45 @@
                 <label style="font-size: 0.8em;" for="choice-js">JavaScript</label>
             </div>
             <div>
-                <input type="radio" id="choice-wasm" name="lang" value="wasm" onchange="changeProcessingLanguage('wasm')" />
+                <input type="radio" id="choice-wasm" name="lang" value="wasm"
+                    onchange="changeProcessingLanguage('wasm')" />
                 <label style="font-size: 0.8em;" for="choice-wasm">WebAssembly</label>
             </div>
         </section>
         <section>
             <h4 style="margin-bottom: 5px; color: #888">Load Parameter</h4>
-            <p style="font-size: 0.7em; color: #999">Applies this load to all plug-ins inserted into audio tracks.</a></p>
+            <p style="font-size: 0.7em; color: #999">Applies this load to all plug-ins inserted into audio tracks.</a>
+            </p>
             <div style="display: flex;flex-flow: row;align-items: center;">
-                <input type="range" id="load-slider" min="0" max="1000" step="1.0" value="1" onchange="changeProcessingLoad()" />
+                <input type="range" id="load-slider" min="0" max="1000" step="1.0" value="1"
+                    onchange="changeProcessingLoad()" />
                 <label id="load-slider-label" style="font-size: 0.8em;text-align: center;" for="load-slider"></label>
             </div>
             <h5 style="margin-bottom: 5px; color: rgb(117, 117, 117)">Extra options</h4>
-            <p style="font-size: 0.7em; color: #999">These are options to either call a JavaScript function <b>sqrt()</b> for each audio buffer or for each sample of the audio block to put extra pressure on the audio processing.</a></p>
+                <p style="font-size: 0.7em; color: #999">These are options to either call a JavaScript function
+                    <b>sqrt()</b> for each audio buffer or for each sample of the audio block to put extra pressure on
+                    the audio processing.</a>
+                </p>
+                <div>
+                    <input type="radio" id="choice-none" name="option" value="none" onchange="addOption('none')" />
+                    <label style="font-size: 0.8em;" for="choice-none">None</label>
+                </div>
+                <div>
+                    <input type="radio" id="choice-sqrt-block" name="option" value="sqrt-block"
+                        onchange="addOption('sqrt-block')" />
+                    <label style="font-size: 0.8em;" for="choice-sqrt-block">sqrt Block</label>
+                </div>
+                <div>
+                    <input type="radio" id="choice-sqrt-samples" name="option" value="sqrt-samples"
+                        onchange="addOption('sqrt-samples')" />
+                    <label style="font-size: 0.8em;" for="choice-sqrt-samples">sqrt Samples</label>
+                </div>
+        </section>
+        <section>
+            <h4 style="margin-bottom: 5px; color: #888">Misc</h4>
+            <p style="font-size: 0.7em; color: #999">Some helpful functions for evaluation</a></p>
             <div>
-                <input type="radio" id="choice-none" name="option" value="none" onchange="addOption('none')" />
-                <label style="font-size: 0.8em;" for="choice-none">None</label>
-            </div>
-            <div>
-                <input type="radio" id="choice-sqrt-block" name="option" value="sqrt-block" onchange="addOption('sqrt-block')" />
-                <label style="font-size: 0.8em;" for="choice-sqrt-block">sqrt Block</label>
-            </div>
-            <div>
-                <input type="radio" id="choice-sqrt-samples" name="option" value="sqrt-samples" onchange="addOption('sqrt-samples')" />
-                <label style="font-size: 0.8em;" for="choice-sqrt-samples">sqrt Samples</label>
+                <button id="exportFpsLog" onclick="exportFpsLog()">Export fps log</button>
             </div>
         </section>
         <audio controls></audio>

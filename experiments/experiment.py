@@ -15,6 +15,7 @@ import shutil
 import io
 import subprocess
 import numpy
+import sys
 
 downloadDir = "browser_download"
 
@@ -115,41 +116,41 @@ def run_experiment(outputPath, url):
     driver.quit()
 
 
-numTracks = [96]
+
+numTracks = [1, 96]
 languages = ['wasm', 'js']
-loads = [50, 100]
+loads = [0, 1]
 load_options = ["none", "sqrt-samples", "sqrt-block"]
 
 streamModes = ["AudioWorkletNode", "AudioBufferSourceNode"]
-# streamModes = ["AudioBufferSourceNode"]
 
-i = 0
-while path.exists("{}/results-{}".format(os.getcwd(), i)): i += 1
-resultPath = "{}/results-{}".format(os.getcwd(), i)
-os.mkdir(resultPath)
-# run_experiment(resultPath, 1, "js", 0, "AudioWorkletNode")
+for round in range (0,1):
+    i = 0
+    while path.exists("{}/results-{}".format(os.getcwd(), i)): i += 1
+    resultPath = "{}/results-{}".format(os.getcwd(), i)
+    os.mkdir(resultPath)
 
-# load experiment - AudioWorkletNode vs AudioBufferSourceNode
+    # # load experiment - AudioWorkletNode vs AudioBufferSourceNode
+    # fpTrackTest = os.path.join(resultPath, "track-test")
+    # os.mkdir(fpTrackTest)
+    # for nTracks in numTracks:
+    #     fpTracks = os.path.join(fpTrackTest, "{}".format(nTracks))
+    #     os.mkdir(fpTracks)
+    #     for mode in streamModes:
+    #         fpMode = os.path.join(fpTracks, "{}".format(mode))
+    #         os.mkdir(fpMode)
+    #         run_track_test(fpTrackTest, nTracks, mode)
 
-# fpTrackTest = os.path.join(resultPath, "track-test")
-# os.mkdir(fpTrackTest)
-# for nTracks in numTracks:
-#     fpTracks = os.path.join(fpTrackTest, "{}".format(nTracks))
-#     os.mkdir(fpTracks)
-#     for mode in streamModes:
-#         fpMode = os.path.join(fpTracks, "{}".format(mode))
-#         os.mkdir(fpMode)
-#         run_track_test(fpTrackTest, nTracks, mode)
-
-fpLoadTest = os.path.join(resultPath, "load-test")
-os.mkdir(fpLoadTest)
-for load in loads:
-    fpLoad = os.path.join(fpLoadTest, "{}".format(load))
-    os.mkdir(fpLoad)
-    for option in load_options:
-        fpOption = os.path.join(fpLoad, "{}".format(option))
-        os.mkdir(fpOption)
-        for language in languages:
-            fpLang = os.path.join(fpOption, "{}".format(language))
-            os.mkdir(fpLang)
-            run_load_test(fpLoadTest, load, language, option)
+    # load experiment - JS vs. WebAssembly
+    fpLoadTest = os.path.join(resultPath, "load-test")
+    os.mkdir(fpLoadTest)
+    for load in loads:
+        fpLoad = os.path.join(fpLoadTest, "{}".format(load))
+        os.mkdir(fpLoad)
+        for option in load_options:
+            fpOption = os.path.join(fpLoad, "{}".format(option))
+            os.mkdir(fpOption)
+            for language in languages:
+                fpLang = os.path.join(fpOption, "{}".format(language))
+                os.mkdir(fpLang)
+                run_load_test(fpLoadTest, load, language, option)

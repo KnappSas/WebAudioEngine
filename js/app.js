@@ -46,6 +46,7 @@ function createTrackConfig(nTracks) {
 
         let clip = {};
         clip.fileName = "audio/sine_-12dB.wav";
+        // clip.fileName = "audio/sweep.wav";
         clip.samplePos = samplePos;
         clip.length = length;
         clip.iStartInFile = iStartInFile;

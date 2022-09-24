@@ -181,7 +181,7 @@ class AudioEngine {
         let track = null;
         if (this.playbackMode === PlaybackMode.kStreamWithAudioWorkletNode) {
             const sab = exports.RingBuffer.getStorageForCapacity(
-                this.audioContext.sampleRate,
+                this.audioContext.sampleRate/10,
                 Float32Array
             );
 

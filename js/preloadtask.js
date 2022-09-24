@@ -41,7 +41,9 @@ async function startPreloading(taskConfig) {
 
                 if (chunkIndex >= taskConfig.bufferSize) {
                     [awl.currentBuffer, awl.nextBuffer] = [awl.nextBuffer, awl.currentBuffer]; // swap
-                    awl.nextBuffer = await store.getAudioBuffer(tracks[iTrack].clips[0].fileName, awl.fPos, duration);
+                    store.getAudioBuffer(tracks[iTrack].clips[0].fileName, awl.fPos, duration).then((buffer)=>{
+                        awl.nextBuffer = buffer;
+                    });
                     chunkIndex = 0;
                     awl.fPos += inc;
                 }
@@ -50,7 +52,7 @@ async function startPreloading(taskConfig) {
             awl.chunkIndex = chunkIndex;
         }
 
-        setTimeout(timeout, 16);
+        setTimeout(timeout, 10);
     }
 
     timeout();

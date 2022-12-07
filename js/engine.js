@@ -5,14 +5,14 @@
 // import Track from "./track.js";
 // import URLFromFiles from "../utils.js";
 
-const PlaybackMode = {
+const AEPlaybackMode = {
     kScheduleFromMainThread: "AudioBufferSourceNode",
     kStreamWithAudioWorkletNode: "AudioWorkletNode"
 };
 
 class AudioEngine {
     constructor() {
-        this.playbackMode = PlaybackMode.kStreamWithAudioWorkletNode;
+        this.playbackMode = AEPlaybackMode.kStreamWithAudioWorkletNode;
 
         this.decodedFileNames = [];
         this.tracks = [];
@@ -23,101 +23,25 @@ class AudioEngine {
         this.currentDeviceId = "";
     }
 
-    async #setupAudioReader(sabs) {
-        const WORKER_PATH = "js/audioreader.js";
-        const AUDIO_STORE_PATH = "node_modules/@audiostore/lib/index.js";
-        const AUDIO_WRITER_PATH = "node_modules/ringbuf.js/dist/index.js";
-        const PRELOAD_TASK_PATH = "js/preloadtask.js";
-
-        const url = await URLFromFiles([
-            WORKER_PATH,
-            AUDIO_STORE_PATH,
-            AUDIO_WRITER_PATH,
-            PRELOAD_TASK_PATH,
-        ]);
-        let trackModels = [];
-        this.tracks.forEach((track) => {
-            trackModels.push(track.model);
-        });
-
-        await setupWorker(url, trackModels, sabs, 1, this.audioContext.sampleRate);
-    }
-
     async forcePreLoad() {
-        if (this.playbackMode === PlaybackMode.kStreamWithAudioWorkletNode) {
-            await this.#setupAudioReader(this.sabs);
-        }
-        else if (this.playbackMode === PlaybackMode.kScheduleFromMainThread) {
-            await this.streamCoordinator.load();
-            this.streamCoordinator.stream(0);
-        }
+        this.streamCoordinator.load();
     }
 
-    async initialize(playbackMode = kStreamWithAudioWorkletNode) {
+    async initialize(playbackMode = AEPlaybackMode.kStreamWithAudioWorkletNode) {
         this.playbackMode = playbackMode;
 
         this.audioContext = new AudioContext();
-        this.audioContext.suspend();
+        this.audioContext.resume();
 
         console.log("audioContext.sampleRate: ", this.audioContext.sampleRate);
         console.log("audioContext.baseLatency: ", this.audioContext.baseLatency);
         console.log("audioContext.outputLatency: ", this.audioContext.outputLatency);
 
-        // const request = new XMLHttpRequest();
-        // request.open("GET", "../audio/sine_-12dB.wav");
-        // request.responseType = "arraybuffer";
-        // request.onload = () => {
-        //     console.log("onload");
-        //     let undecodedAudio = request.response;
-        //     this.audioContext.decodeAudioData(undecodedAudio, (data) => {
-        //         Track.buffer = data;
-        //         console.log("buffer loaded");
-        //     });
-        // };
-        // request.send();
-
         this.store = new AudioStore(this.audioContext);
         this.store.init();
 
-        if (this.playbackMode === PlaybackMode.kScheduleFromMainThread) {
-            this.streamCoordinator = new StreamCoordinator([], this.store, this.audioContext);
-        }
-
-        // // ask for devices on startup to get permission from the user 
-        // // to fill input device list
-        // const device = await navigator.mediaDevices.getUserMedia({
-        //     audio: {
-        //         deviceId: Track.INPUT_DEVICE_ID,
-        //         channelCount: 2,
-        //         echoCancellation: false,
-        //         autoGainControl: false,
-        //         noiseSuppression: false,
-        //         latency: 0,
-        //     },
-        // });
-
-        // device.getTracks().forEach((track) => {
-        //     this.currentDeviceId = track.getSettings().deviceId;
-        // });
-
-        // Track.INPUT_DEVICE_ID = this.currentDeviceId;
-
-        // const devices = await navigator.mediaDevices.enumerateDevices();
-        // const deviceSelector = document.getElementById("input-device-selector");
-        // devices.forEach((device) => {
-        //     let opt = document.createElement("option");
-        //     opt.value = device.deviceId;
-        //     opt.innerHTML = device.label;
-        //     console.log(device);
-
-        //     deviceSelector.appendChild(opt);
-        // });
-
-        // deviceSelector.onchange = () => {
-        //     console.log(`selected audio device id: ${deviceSelector.value} label: ${deviceSelector.options[deviceSelector.selectedIndex].label}`);
-        // };
-
-        // deviceSelector.value = this.currentDeviceId;
+        AudioWorkletStreamer.initializeAudioWorkletStreamingWorker();
+        this.streamCoordinator = new StreamCoordinator([], this.store, this.audioContext, this.playbackMode);
 
         if (this.audioContext.audioWorklet === undefined) {
             log("No AudioWorklet.");
@@ -149,11 +73,15 @@ class AudioEngine {
     }
 
     async play() {
-        this.audioContext.resume();
+        this.streamCoordinator.stream(null);
     }
 
     stop() {
-        this.audioContext.suspend();
+        this.streamCoordinator.stop();
+    }
+
+    seek(pos) {
+        this.streamCoordinator.seek(pos);
     }
 
     record() {
@@ -161,14 +89,6 @@ class AudioEngine {
         for (let i = 0; i < this.tracks.length; i++) {
             this.tracks[i].startRecord();
         }
-
-        // if(this.audioContext.state === "suspended") {
-        //     let resumeStart = performance.now();
-        //     this.audioContext.resume().then(() => {
-        //         let resumeEnd = performance.now();
-        //         console.log("resume time: ", resumeEnd-resumeStart);
-        //     });
-        // }
     }
 
     stopRecord() {
@@ -177,22 +97,9 @@ class AudioEngine {
         }
     }
 
-    addTrack(options) {
-        let track = null;
-        if (this.playbackMode === PlaybackMode.kStreamWithAudioWorkletNode) {
-            const sab = exports.RingBuffer.getStorageForCapacity(
-                this.audioContext.sampleRate/10,
-                Float32Array
-            );
-
-            this.sabs.push(sab);
-            track = new Track(this.audioContext, this.store);
-            track.initialize(sab);
-        } else if(this.playbackMode === PlaybackMode.kScheduleFromMainThread) {
-            track = new Track(this.audioContext, this.store, this.streamCoordinator);
-            track.initialize();
-        }
-
+    async addTrack(options) {
+        let track = new Track(this.audioContext, this.store, this.streamCoordinator);
+        await track.initialize();
         track.setGain(options.gain);
         track.connectToOutput(this.masterGain);
 

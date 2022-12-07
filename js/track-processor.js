@@ -33,4 +33,4 @@ class TrackProcessor extends AudioWorkletProcessor {
     }
 }
 
-registerProcessor("track-processor", TrackProcessor);
+registerProcessor("workletstream-processor", TrackProcessor);

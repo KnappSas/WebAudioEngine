@@ -1,19 +1,19 @@
 class Track {
-    static decodedFileNames = [];
     static ID = 0;
     static INPUT_DEVICE_ID = "";
 
     static BUFFER = null;
 
-    constructor(audioContext, store, streamCoordinator = null) {
+    constructor(audioContext, store, streamCoordinator) {
         this.audioContext = audioContext;
         this.store = store;
         this.streamCoordinator = streamCoordinator;
         this.recorder = null;
         this.recorderNode = null;
         this.chunks = [];
-        this.inputNode = null;
 
+        this.streamHandle = null;
+        this.inputNode = null;
         this.trackNode = null;
         this.gainNode = null;
         this.model = {
@@ -23,22 +23,9 @@ class Track {
         this.id = Track.ID++;
     }
 
-    initialize(sab = null) {
-        if (sab) {
-            this.trackNode = new AudioWorkletNode(
-                this.audioContext,
-                "track-processor",
-                {
-                    processorOptions: {
-                        audioQueue: sab,
-                    },
-                }
-            );
-        } else {
-            // gainNode with gain-value 1 will be optimized out at runtime
-            this.trackNode = this.audioContext.createGain();
-        }
-
+    async initialize() {
+        this.streamHandle = await this.streamCoordinator.createStream();
+        this.trackNode = this.streamCoordinator.getNode(this.streamHandle);
         this.gainNode = this.audioContext.createGain();
         this.trackNode.connect(this.gainNode);
     }
@@ -55,52 +42,6 @@ class Track {
         this.gainNode.gain.setValueAtTime(gain, this.audioContext.currentTime);
     }
 
-    async loadAudioFile(fileName) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                const { duration } = await this.store.getMetadata( fileName );
-                console.log("cache hit for: ", fileName);
-                resolve();
-                return;
-            } catch {
-            }
-
-            if (Track.decodedFileNames.includes(fileName)) {
-                resolve();
-            } else {
-                let request = new XMLHttpRequest();
-                request.open("GET", fileName, true);
-                request.responseType = "arraybuffer";
-                request.onload = () => {
-                    let audioData = request.response;
-                    console.log("decoding audio file!");
-                    this.audioContext.decodeAudioData(
-                        audioData,
-                        (buffer) => {
-                            this.store
-                                .saveAudioBuffer(fileName, buffer)
-                                .then((metadata) => {
-                                    // duration = metadata.duration;
-                                    resolve();
-                                });
-                        },
-                        (e) => {
-                            console.log(
-                                "Error with decoding audio data" + e.err
-                            );
-                            reject();
-                        }
-                    );
-                };
-
-                request.onerror = reject;
-                request.send();
-
-                Track.decodedFileNames.push(fileName);
-            }
-        });
-    }
-
     async loadFileAsClip(fileName, position) {
         const clip = {
             fileName: fileName,
@@ -110,13 +51,8 @@ class Track {
         };
 
         this.model.clips.push(clip);
-
-        if (this.streamCoordinator) {
-            const streamer = this.streamCoordinator.addURL(clip.fileName);
-            streamer.gain.connect(this.trackNode);
-        } else if (this.store) {
-            await this.loadAudioFile(fileName);
-        }
+        this.streamCoordinator.addClipToStream(this.streamHandle, clip);
+        await this.streamCoordinator.load();
     }
 
     #findPlugin(pluginId) {

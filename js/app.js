@@ -186,11 +186,10 @@ async function initializeApp() {
 
         let promises = [];
         for (let iTrack = 0; iTrack < numTracks; iTrack++) {
-            let handle = audioEngine.addTrack({ gain: gainPerTrack });
+            let handle = await audioEngine.addTrack({ gain: gainPerTrack });
             trackHandles.push(handle);
 
             promises.push(audioEngine.addFileToTrack(handle, trackModel.tracks[iTrack].clips[0].fileName, 0));
-
             // audioEngine.insertPluginToTrack(
             //     handle,
             //     pluginCollection.get("LatencyMeasurer")
@@ -269,26 +268,26 @@ function exportFpsLog() {
     downloadBlob(csv, 'fps.csv', 'text/csv;charset=utf-8;')
 }
 
-(() => {
-    const times = [];
-    let fps;
+// (() => {
+//     const times = [];
+//     let fps;
 
-    function refreshLoop() {
-        window.requestAnimationFrame(() => {
-            const now = performance.now();
-            while (times.length > 0 && times[0] <= now - 1000) {
-                times.shift();
-            }
-            times.push(now);
-            fps = times.length;
-            refreshLoop();
-        });
-    }
-    refreshLoop();
+//     function refreshLoop() {
+//         window.requestAnimationFrame(() => {
+//             const now = performance.now();
+//             while (times.length > 0 && times[0] <= now - 1000) {
+//                 times.shift();
+//             }
+//             times.push(now);
+//             fps = times.length;
+//             refreshLoop();
+//         });
+//     }
+//     refreshLoop();
 
-    // output to console once per second
-    setInterval(() => {
-        fpsLog.push(fps);
-        console.log(`fps: ${fps}`);
-    }, 1000)
-})();
+//     // output to console once per second
+//     setInterval(() => {
+//         fpsLog.push(fps);
+//         console.log(`fps: ${fps}`);
+//     }, 1000)
+// })();

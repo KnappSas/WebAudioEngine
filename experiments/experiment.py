@@ -34,9 +34,9 @@ def run_track_test(resultPath, nTracks, streamingMode="AudioWorkletNode"):
     url = "http://localhost:8888/?nTracks={}&streamingMode={}".format(nTracks, streamingMode)
     run_experiment(baseOutputPath, url)
 
-def run_load_test(resultPath, load, dspLang, option):
-    baseOutputPath = "{}/{}/{}/{}".format(resultPath, load, option, dspLang)
-    url = "http://localhost:8888/?nTracks=1&lang={}&load={}&option={}&nPlugins=1".format(dspLang, load, option)
+def run_load_test(resultPath, nTracks, load, dspLang, option):
+    baseOutputPath = "{}/{}/{}/{}/{}".format(resultPath, load, option, dspLang, nTracks)
+    url = "http://localhost:8888/?nTracks={}&lang={}&load={}&option={}&nPlugins=1&streamingMode={}".format(nTracks, dspLang, load, option, "AudioWorkletNode")
     run_experiment(baseOutputPath, url)
 
 def run_experiment(outputPath, url):
@@ -57,13 +57,14 @@ def run_experiment(outputPath, url):
     WebDriverWait(driver, 300).until(EC.element_to_be_clickable((By.ID, 'startBtn')))
     driver.find_element(By.ID, 'startBtn').click()
 
-    pyautogui.click(1679, 91)
+    time.sleep(1)
+    pyautogui.click(1644, 84)
     processUsage = [("Memory (RSS)", "Memory (VSZ)", "CPU")]
 
-    for i in range(10):
+    for i in range(100):
         processUsage.append(read_tab_process())
-        time.sleep(1)
-    pyautogui.click(1679, 91)
+        time.sleep(0.1)
+    pyautogui.click(1644, 84) #1644, y=84
     
     mem_np_array = numpy.array(processUsage)
     memPath = os.path.join(outputPath, "{}".format("cpu_mem.csv"))
@@ -117,33 +118,33 @@ def run_experiment(outputPath, url):
 
 
 
-numTracks = [1, 96]
 languages = ['wasm', 'js']
-loads = [0, 1]
 load_options = ["none", "sqrt-samples", "sqrt-block"]
-
 streamModes = ["AudioWorkletNode", "AudioBufferSourceNode"]
 
-for round in range (0,1):
+for round in range (0,20):
     i = 0
     while path.exists("{}/results-{}".format(os.getcwd(), i)): i += 1
     resultPath = "{}/results-{}".format(os.getcwd(), i)
     os.mkdir(resultPath)
 
-    # # load experiment - AudioWorkletNode vs AudioBufferSourceNode
-    # fpTrackTest = os.path.join(resultPath, "track-test")
-    # os.mkdir(fpTrackTest)
-    # for nTracks in numTracks:
-    #     fpTracks = os.path.join(fpTrackTest, "{}".format(nTracks))
-    #     os.mkdir(fpTracks)
-    #     for mode in streamModes:
-    #         fpMode = os.path.join(fpTracks, "{}".format(mode))
-    #         os.mkdir(fpMode)
-    #         run_track_test(fpTrackTest, nTracks, mode)
+    # load experiment - AudioWorkletNode vs AudioBufferSourceNode
+    fpTrackTest = os.path.join(resultPath, "track-test")
+    os.mkdir(fpTrackTest)
+
+    for nTracks in [1, 96]:
+        fpTracks = os.path.join(fpTrackTest, "{}".format(nTracks))
+        os.mkdir(fpTracks)
+        for mode in streamModes:
+            fpMode = os.path.join(fpTracks, "{}".format(mode))
+            os.mkdir(fpMode)
+            run_track_test(fpTrackTest, nTracks, mode)
 
     # load experiment - JS vs. WebAssembly
     fpLoadTest = os.path.join(resultPath, "load-test")
     os.mkdir(fpLoadTest)
+    
+    loads = [0, 15]
     for load in loads:
         fpLoad = os.path.join(fpLoadTest, "{}".format(load))
         os.mkdir(fpLoad)
@@ -153,4 +154,14 @@ for round in range (0,1):
             for language in languages:
                 fpLang = os.path.join(fpOption, "{}".format(language))
                 os.mkdir(fpLang)
-                run_load_test(fpLoadTest, load, language, option)
+
+                numTracks = []
+                if load == 0:
+                    numTracks = [1, 12, 96]
+                else:
+                    numTracks = [1, 12]
+
+                for nTracks in numTracks:
+                    fpTracks = os.path.join(fpLang, "{}".format(nTracks))
+                    os.mkdir(fpTracks)
+                    run_load_test(fpLoadTest, nTracks, load, language, option)

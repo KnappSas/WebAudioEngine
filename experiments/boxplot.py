@@ -10,12 +10,21 @@ from scipy.stats import f_oneway
 from scipy.stats import ttest_ind
 import sys
 from matplotlib.ticker import ScalarFormatter
+from matplotlib.ticker import PercentFormatter
+from matplotlib.ticker import FormatStrFormatter
 
+from statannot import add_stat_annotation
 from outliers import remove_all_outliers
 
+import re
 REMOVE_OUTLIERS = False
+ENABLE_TRACK_TEST = True
+ENABLE_LOAD_TEST = True
+mydpi=300
 
-def compare_2_groups(arr_1, arr_2, alpha, sample_size):
+np.set_printoptions(threshold=sys.maxsize)
+
+def compare_2_groups(arr_1, arr_2, alpha):
     stat, p = ttest_ind(arr_1, arr_2)
     print('Statistics=%.3f, p=%.3f' % (stat, p))
     if p > alpha:
@@ -62,6 +71,10 @@ def create_data_frame(path1, path2, column, name1, name2):
     df.rename(columns={column: name1}, inplace=True)
     df2 = pd.read_csv(path2, usecols=[column])
     df2.rename(columns={column: name2}, inplace=True)
+
+    if name1 == 'WebAssembly' or (name1 == 'AudioWorkletNode' and column == 'load'): 
+        df.drop(df.tail(10).index,inplace=True) # drop last row because it often creates outliers
+        df2.drop(df2.tail(10).index,inplace=True)
     df[name2] = df2[name2]
     return df
 
@@ -73,36 +86,28 @@ def create_box_plot(path1, path2, column, name1, name2, ax, title):
     # ax.grid(True)
     # return sns.boxplot(data=df, width=0.25, ax=ax)
 
-def create_plots_for_results3(result, load, ax):
+def create_df_comp_option(result, load):
     dfList = []
     for option in ['none', 'sqrt-samples', 'sqrt-block']:
-        path1 = 'results-{}/load-test/{}/{}/{}/export.csv'.format(
-            result, load, option, "wasm")
-        path2 = 'results-{}/load-test/{}/{}/{}/export.csv'.format(
-            result, load, option, "js")
-        name1 = "WebAssembly"
-        name2 = "JavaScript"
+        if load == 0:
+            loadTracks = [1, 12, 96]
+        else:
+            loadTracks = [1, 12]
+        for nTracks in loadTracks:
+            path1 = 'results-{}/load-test/{}/{}/{}/{}/export.csv'.format(
+                result, load, option, "wasm", nTracks)
+            path2 = 'results-{}/load-test/{}/{}/{}/{}/export.csv'.format(
+                result, load, option, "js", nTracks)
+            name1 = "WebAssembly"
+            name2 = "JavaScript"
 
-        df = create_data_frame(path1, path2, 'load', name1, name2)
-        if REMOVE_OUTLIERS:
-            df = remove_all_outliers(df, 'WebAssembly')
-            df = remove_all_outliers(df, 'JavaScript')
-        print(df.head())
-        df['Option'] = option
-        dfList.append(df)
+            df = create_data_frame(path1, path2, 'load', name1, name2)
+            df['Option'] = option
+            df['nTracks'] = nTracks
+            dfList.append(df)
 
     cdf = pd.concat(dfList)
-    mdf = pd.melt(cdf, id_vars=['Option'])
-    mdf.rename(columns={'variable': 'Language', 'value': 'load'}, inplace=True)
-    print(mdf.head())
-
-    # fig, ax = plt.subplots()
-    ax.set_yscale('log')
-    # for axis in [ax.xaxis, ax.yaxis]:
-    #     axis.set_major_formatter(ScalarFormatter())
-    # ax.grid(True)
-
-    return sns.boxplot(data=mdf, x='Option', y='load', hue='Language',order = ['none', 'sqrt-block', 'sqrt-samples'], palette = 'magma', ax=ax,flierprops = dict(markerfacecolor = '0.50', markersize = 2))
+    return cdf
 
 def create_plots_for_results2(result, load, option):
     basePath = 'results-{}/load-test/{}/{}/{}/export.csv'.format(result, load, option, '{}')
@@ -112,16 +117,6 @@ def create_plots_for_results2(result, load, option):
 
     fig, axes = plt.subplots()
     ax = fig.add_subplot(111)
-    # boxplotLoad = create_box_plot(wasmPath, jsPath, 'load', "WebAssembly", "JavaScript", ax, "Audio Load")
-
-    # path1 = 'results-{}/{}/{}/{}/AudioWorkletNode/fps.csv'.format(result, 96, 0, "js")
-    # path2 = 'results-{}/{}/{}/{}/AudioBufferSourceNode/fps.csv'.format(result, 96, 0, "js")
-    # boxplotFPS = create_box_plot(path1, path2, 'fps', name1, name2, axes[0,1], "FPS")
-
-    # path1 = 'results-{}/{}/{}/{}/AudioWorkletNode/cpu_mem.csv'.format(result, 96, 0, "js")
-    # path2 = 'results-{}/{}/{}/{}/AudioBufferSourceNode/cpu_mem.csv'.format(result, 96, 0, "js")
-    # boxplotMem = create_box_plot(path1, path2, 'Memory (RSS)', name1, name2, axes[1,0], "Memory (RSS)")
-    # boxplotCPU = create_box_plot(path1, path2, 'CPU', name1, name2, axes[1,1], "CPU")
 
 def create_plots_for_result(result):
     basePath = 'results-{}/{}/{}/{}/{}'
@@ -169,11 +164,6 @@ def create_load_test_df(basePath):
 
     return create_data_frame(wasmPath, jsPath, 'load', 'WebAssembly', 'JavaScript')
 
-# def create_hist(df, col, color="b"):
-#     df = remove_all_outliers(df, col)
-#     ax = sns.distplot(df[col])
-#     plt.axvline(np.mean(df[col]), color=color, linestyle="dashed", linewidth=1)
-
 def create_comparison_hist(df1, df2, col1, col2, ax, xLabel=""):
     f, ax = plt.subplots(1,1)
 
@@ -192,75 +182,161 @@ def create_comparison_hist(df1, df2, col1, col2, ax, xLabel=""):
 def create_load_histogram_comp(df, ax, xLabel=""):
     create_comparison_hist(df, df, 'WebAssembly', 'JavaScript', ax, xLabel)
 
-# create_plots_for_results3(0, 0)     
-# plt.legend(loc='center left', bbox_to_anchor=(1, 0))
-# plt.savefig('{}/comparison.png'.format(graphicsPath), )  
-# # plt.show()
-
-# fig, ax = plt.subplots()
-# create_plots_for_results3(20, 15, ax)
-# # else:
-# #     plt.legend(loc='center left', bbox_to_anchor=(1, 0))
-# plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right')
-# # plt.tight_layout()
-# plt.show()
-
 tracks = [1, 96]
-df_track_dict = dict([(tracks[0], []), (tracks[1], [])])
+groups = ['fps', 'load', 'Memory (RSS)', 'CPU']
+df_track_dict = dict([
+    (tracks[0], 
+    dict([
+        (groups[0], []),
+        (groups[1], []),
+        (groups[2], []),
+        (groups[3], [])])),
+    (tracks[1], 
+    dict([
+        (groups[0], []),
+        (groups[1], []),
+        (groups[2], []),
+        (groups[3], [])]))  
+    ])
 
-for iResult in range(0, 1):
-    # languages = ['wasm', 'js']
-    # loads = [0, 50]
-    # load_options = ["none", "sqrt-samples", "sqrt-block"]
+loads = [0,15]
+df_load_dict = dict([(loads[0], []), (loads[1], [])])
 
-    # for lang in languages:
-    #     for load in loads:
-    #         for option in load_options:
-    #             plt.figure()
-    #             graphicsPath = 'results-{}/load-test/{}/{}'.format(iResult, load, option)
-    #             basePath = 'results-{}/load-test/{}/{}/{}/{}'
-    #             basePath = basePath.format(iResult, load, option, '{}', 'export.csv')
-    #             df = create_load_test_df(basePath)
-    #             if REMOVE_OUTLIERS:
-    #                 df = remove_all_outliers(df, 'WebAssembly')
-    #                 df = remove_all_outliers(df, 'JavaScript')
-    #             sns.boxplot(data=df, width=0.25)
-    #             plt.savefig('{}/{}_{}_measurement_bar.png'.format(graphicsPath, load, option))
+for iResult in range(1, 11):
+    languages = ['wasm', 'js']
+    load_options = ["none", "sqrt-samples", "sqrt-block"]
 
-    # iAx = 0
-    # for load in loads:
-    #     fig, ax = plt.subplots()
-    #     graphicsPath = 'results-{}/load-test/{}'.format(iResult, load)
-    #     create_plots_for_results3(iResult, load, ax)
-    #     if iAx == 0:
-    #         ax.legend([],[], frameon=False)
-    #     # else:
-    #     #     plt.legend(loc='center left', bbox_to_anchor=(1, 0))
-    #     plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right')
-    #     iAx = iAx + 1     
-    #     # plt.tight_layout()
-    #     plt.savefig('{}/comparison.png'.format(graphicsPath))  
+    if(ENABLE_LOAD_TEST):
+        for load in loads:
+            #fig, ax = plt.subplots()
+            graphicsPath = 'results-{}/load-test/{}'.format(iResult, load)
+            df = create_df_comp_option(iResult, load)
+            df_load_dict[load].append(df)
 
     graphicsPath = ''
     file = 'export.csv' 
 
-    for nTracks in tracks:
-        for group in [('fps', 'fps.csv'), ('load', 'export.csv'), ('Memory (RSS)', 'cpu_mem.csv'), ('CPU', 'cpu_mem.csv')]:
-            graphicsPath = 'results-{}/track-test/{}'.format(iResult, nTracks)
-            basePath = 'results-{}/track-test/{}/{}/{}'.format(iResult, nTracks, '{}', group[1])
-            df = create_track_test_df(basePath, group[0])
-            if REMOVE_OUTLIERS:
-                df = remove_all_outliers(df, "AudioWorkletNode")
-                df = remove_all_outliers(df, "AudioBufferSourceNode")
+    if(ENABLE_TRACK_TEST):
+        for nTracks in tracks:
+            for group in [('fps', 'fps.csv'), ('load', 'export.csv'), ('Memory (RSS)', 'cpu_mem.csv'), ('CPU', 'cpu_mem.csv')]:
+                graphicsPath = 'results-{}/track-test/{}'.format(iResult, nTracks)
+                basePath = 'results-{}/track-test/{}/{}/{}'.format(iResult, nTracks, '{}', group[1])
+                df = create_track_test_df(basePath, group[0])
 
-            sns.set_style("darkgrid")
+                df_track_dict[nTracks][group[0]].append(df)
+                
+                sns.set_style("darkgrid")
+                # create_comparison_hist(df,df,"AudioWorkletNode", "AudioBufferSourceNode", "Load")
+                # plt.savefig('{}/{}_measurement_{}_hist.png'.format(graphicsPath, nTracks, group[0]))
+                f, ax = plt.subplots(1,1)
+                sns.boxplot(data=df, width=0.25, flierprops = dict(markerfacecolor = '0.50', markersize = 2))
+                # sns.boxplot(data=df, width=0.25, showfliers = False)
+                
+                plt.savefig('{}/{}_measurement_{}_box.png'.format(graphicsPath, nTracks, group[0]), dpi=mydpi)
+
+if ENABLE_LOAD_TEST:         
+    for load in loads:
+        if load == 0:
+            loadTracks = [1, 12, 96]
+        else:
+            loadTracks = [1, 12]
+
+        for nTracks in loadTracks:
+            cdf = pd.concat(df_load_dict[load])
+
+            mdf = pd.melt(cdf, id_vars=['Option', 'nTracks'])
+            mdf.rename(columns={'variable': 'Language', 'value': 'load'}, inplace=True)
+            mdf = mdf.loc[(mdf['nTracks'] == nTracks)]
+            mdf = mdf[~mdf.isin([np.nan, np.inf, -np.inf]).any(1)] 
+
+            if load == 15 and nTracks == 1:
+                mdf = mdf.loc[(mdf['load'] <= 1.0)]
+            if load == 0 and nTracks == 12:
+                mdf = mdf.loc[(mdf['load'] <= 0.25)]  
+            if load == 0 and nTracks == 96:
+                mdf = mdf.loc[(mdf['load'] <= 2)]  
+
+            # with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            #     print(mdf)
             
-            # create_comparison_hist(df,df,"AudioWorkletNode", "AudioBufferSourceNode", "Load")
-            # plt.savefig('{}/{}_measurement_{}_hist.png'.format(graphicsPath, nTracks, group[0]))
+            fig, ax = plt.subplots()
+
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+
+            # if load == 0:
+            #     plt.legend([],[], frameon=False)
+            # else:
+            #     plt.legend(loc='center left', bbox_to_anchor=(1, 0))
+            order = []
+            box_pairs = []
+            if load == 15 and nTracks == 12:
+                order = ['none', 'sqrt-block']
+                box_pairs = [(("none", "WebAssembly"), ("none", "JavaScript")), 
+                            (('sqrt-block','WebAssembly'), ('sqrt-block', 'JavaScript'))]
+            else:
+                order = ['none', 'sqrt-block', 'sqrt-samples']
+                box_pairs = [(("none", "WebAssembly"), ("none", "JavaScript")), 
+                            (('sqrt-block','WebAssembly'), ('sqrt-block', 'JavaScript')), 
+                            (('sqrt-samples', 'WebAssembly'), ('sqrt-samples', 'JavaScript'))]
+
+            ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
+            box_plot = sns.boxplot(data=mdf, y='load', x='Option', hue='Language',order = order, palette = 'magma', ax=ax, showfliers = True)
+            #add_stat_annotation(box_plot, data=mdf, x='Option', y='load', hue='Language',
+            #                    box_pairs=box_pairs,
+            #                    test='t-test_ind', text_format='simple', loc='inside', verbose=1, order=order)
+
+            box_plot.set(xlabel ="Scenario", ylabel = "Audio callback load (%)")
+            # sns.move_legend(
+            # ax, "right",
+            # bbox_to_anchor=(.5, 1), ncol=3, title=None, frameon=False,
+            # )
+            plt.legend([],[], frameon=False)
+
+            if load == 15:
+                box_plot.set_ylim(0, 1.2)
+            elif load == 0 and nTracks == 96:
+                print("")
+                # do nothing
+            else:
+                box_plot.set_ylim(0, 0.25)
+            
+            plt.savefig('comparison_{}_{}.png'.format(load, nTracks), dpi=mydpi)      
+
+if ENABLE_TRACK_TEST:
+    for nTracks in tracks:
+        for group in [('fps', 'Frames per second (FPS)'), ('load', 'Audio callback load (%)'), ('Memory (RSS)', 'Memory (MB)'), ('CPU', 'CPU (%)')]:
+            cdf = pd.concat(df_track_dict[nTracks][group[0]])
+            cdf = cdf[~cdf.isin([np.nan, np.inf, -np.inf]).any(1)]
 
             f, ax = plt.subplots(1,1)
-            # sns.boxplot(data=df, width=0.25, flierprops = dict(markerfacecolor = '0.50', markersize = 2))
-            sns.boxplot(data=df, width=0.25, showfliers = False)
-            plt.savefig('{}/{}_measurement_{}_box.png'.format(graphicsPath, nTracks, group[0]))
-            
-            #compare_2_groups(df['AudioWorkletNode'], df['AudioBufferSourceNode'], 0.95, len(df.index))
+            ax.set_ylabel(group[1])
+            if group[0] == 'load':
+                ax.yaxis.set_major_formatter(PercentFormatter(xmax=1.0, decimals=0))
+            # box_plot = sns.boxplot(data=cdf, width=0.25, flierprops = dict(markerfacecolor = '0.50', markersize = 2))
+            box_plot = sns.boxplot(data=cdf, width=0.25,palette = 'colorblind')
+
+            if group[0] == 'load':
+                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                    print(cdf)
+                compare_2_groups(cdf['AudioWorkletNode'], cdf['AudioBufferSourceNode'], 0.05)
+            # vertical_offset = cdf['AudioWorkletNode'] * 0.05
+            # vertical_offset = 0
+
+            add_stat_annotation(box_plot, data=cdf,
+                                box_pairs=[("AudioWorkletNode", "AudioBufferSourceNode")],
+                                test='t-test_ind', text_format='simple', loc='inside', verbose=2)
+
+            xtick = 0
+            for node in ['AudioWorkletNode', 'AudioBufferSourceNode']:
+                
+                if group[0] == 'load':
+                    median = round(cdf[node].median() * 100, 2)
+                else:
+                    median = round(cdf[node].median(), 2)
+                s = group[1]
+                unitStr = s[s.find("(")+1:s.find(")")]
+                box_plot.text(xtick-0.42, cdf[node].median(), "Median:\n{} {}".format(median, unitStr), horizontalalignment='left',size='small',color='#3F3F3F',weight='semibold')
+                xtick = xtick + 1
+            # sns.boxplot(data=cdf, width=0.25, showfliers = False)
+            plt.xticks([0,1], ['AudioWorkletStreamer', 'AudioBufferSourceStreamer'])
+            plt.savefig('{}_track_{}_box.png'.format(nTracks, group[0]), dpi=mydpi)

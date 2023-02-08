@@ -2,10 +2,16 @@ const CHUNK_SIZE = 128;
 const BUFFER_SIZE = 44160;
 
 class Stream {
-    constructor(streamID, sab = null) {
+    constructor(streamID, sab) {
         this.streamID = streamID;
         this.sab = sab;
         this.clips = [];
+        this.writer = new AudioWriter(new RingBuffer(sab, Float32Array));
+
+        this.currentBuffer = null;
+        this.nextBuffer = null;
+        this.chunkIndex = 0;
+        this.fPos = 0;
     }
 
     addClip(clip) {
@@ -14,6 +20,10 @@ class Stream {
 
     isValid() {
         return this.sab !== null;
+    }
+
+    write(chunk) {
+        this.writer.enqueue(chunk);
     }
 }
 
@@ -25,8 +35,10 @@ class DiskStreamer {
 
         this.bufferSize = BUFFER_SIZE;
         this.sampleRate = 44100;
-        
+
         this.audioWriterList = [];
+
+        this.chunk = new Float32Array(this.chunkSize);
     }
 
     async initialize() {
@@ -36,15 +48,14 @@ class DiskStreamer {
     }
 
     addStream(streamID, sab) {
-        console.log("DiskStreamer::addStream", streamID, sab);
         const stream = new Stream(streamID, sab);
         this.streams.push(stream);
     }
 
     findStream(streamID) {
-        for(let iStream = 0; iStream < this.streams.length; ++iStream) {
+        for (let iStream = 0; iStream < this.streams.length; ++iStream) {
             const stream = this.streams[iStream];
-            if(stream.streamID == streamID) {
+            if (stream.streamID == streamID) {
                 return stream;
             }
         }
@@ -54,30 +65,22 @@ class DiskStreamer {
 
     addClipToStream(streamID, clip) {
         const stream = this.findStream(streamID);
-        if(stream.isValid()) {
+        if (stream.isValid()) {
             stream.addClip(clip);
         }
     }
 
     async prime(offset) {
-        const duration = this.bufferSize / this.sampleRate;
-        const inc = duration;
+        this.duration = this.bufferSize / this.sampleRate;
+        this.inc = this.duration;
 
         for (let iStream = 0; iStream < this.streams.length; iStream++) {
-            let fPos = offset;
-    
-            currentBuffer = await this.store.getAudioBuffer(this.streams[iStream].clips[0].fileName, fPos, duration);
-            fPos += inc;
-            nextBuffer = await this.store.getAudioBuffer(this.streams[iStream].clips[0].fileName, fPos, duration);
-            fPos += inc;
-    
-            this.audioWriterList[iStream] = {
-                writer: new AudioWriter(new RingBuffer(taskConfig.sabs[iStream], Float32Array)),
-                currentBuffer: currentBuffer,
-                nextBuffer: nextBuffer,
-                chunkIndex: 0,
-                fPos: fPos
-            };
+            let stream = this.streams[iStream];
+            stream.fPos = offset;
+            stream.currentBuffer = await this.store.getAudioBuffer(stream.clips[0].fileName, stream.fPos, this.duration);
+            stream.fPos += this.inc;
+            stream.nextBuffer = await this.store.getAudioBuffer(stream.clips[0].fileName, stream.fPos, this.duration);
+            stream.fPos += this.inc;
         }
     }
 
@@ -85,36 +88,35 @@ class DiskStreamer {
         this.running = true;
         const timeout = async () => {
             for (let iStream = 0; iStream < this.streams.length; iStream++) {
-                const awl = this.audioWriterList[iStream];
-                const audioWriter = awl.writer;
-    
-                let chunkIndex = awl.chunkIndex;
-                while (audioWriter.available_write() > this.chunkSize) {
-                    const currentBuffer = awl.currentBuffer;
-    
-                    chunk.set(currentBuffer.getChannelData(0).slice(chunkIndex, chunkIndex + this.chunkSize))
-                    audioWriter.enqueue(chunk);
-                    console.log("enqueue");
+                const stream = this.streams[iStream];
+
+                let chunkIndex = stream.chunkIndex;
+                while (stream.writer.available_write() > this.chunkSize) {
+                    const currentBuffer = stream.currentBuffer;
+
+                    this.chunk.set(currentBuffer.getChannelData(0).slice(chunkIndex, chunkIndex + this.chunkSize))
+                    console.log("write...");
+                    stream.write(this.chunk);
                     chunkIndex += this.chunkSize;
-    
-                    if (chunkIndex >= taskConfig.bufferSize) {
-                        [awl.currentBuffer, awl.nextBuffer] = [awl.nextBuffer, awl.currentBuffer]; // swap
-                        this.store.getAudioBuffer(this.streams[iStream].clips[0].fileName, awl.fPos, duration).then((buffer)=>{
-                            awl.nextBuffer = buffer;
+
+                    if (chunkIndex >= this.bufferSize) {
+                        [stream.currentBuffer, stream.nextBuffer] = [stream.nextBuffer, stream.currentBuffer]; // swap
+                        this.store.getAudioBuffer(this.streams[iStream].clips[0].fileName, stream.fPos, this.duration).then((buffer) => {
+                            stream.nextBuffer = buffer;
                         });
                         chunkIndex = 0;
-                        awl.fPos += inc;
+                        stream.fPos += this.inc;
                     }
                 }
-    
-                awl.chunkIndex = chunkIndex;
+
+                stream.chunkIndex = chunkIndex;
             }
-    
-            if(this.running) {
+
+            if (this.running) {
                 setTimeout(timeout, 10);
             }
         }
-    
+
         timeout();
     }
 

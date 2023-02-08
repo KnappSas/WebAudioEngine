@@ -43,8 +43,8 @@ class AudioWorkletStreamer {
         this.name = url.split('/').pop().split('.')[0];
       }
 
-      const tmpClip = {fileName: url};
-      this.clips.push(tmpClip);    
+      const tmpClip = { fileName: url };
+      this.clips.push(tmpClip);
     }
 
     this.startTime = null;
@@ -52,8 +52,6 @@ class AudioWorkletStreamer {
 
     this.stopped = true;
     this.ready = false;
-
-    this.sabs = [];
   }
 
   nameFromUrl(url) {
@@ -66,17 +64,18 @@ class AudioWorkletStreamer {
       audioContext.sampleRate / 10,
       Float32Array
     );
-    this.sabs.push(sab);
 
     this.trackNode = new AudioWorkletNode(
       audioContext,
       "workletstream-processor",
       {
-          processorOptions: {
-              audioQueue: sab,
-          },
+        processorOptions: {
+          audioQueue: sab,
+        },
       }
-  );
+    );
+
+    console.log("this.trackNode assigned");
 
     this.diskStreaming = new DiskStreamerStub(AudioWorkletStreamer.diskStreamingWorker);
     await this.diskStreaming.initialize();
@@ -84,8 +83,8 @@ class AudioWorkletStreamer {
   }
 
   async prime(offset) {
-    if(!AudioWorkletStreamer.primeDone)
-      this.diskStreaming.prime(offset);
+    if (!AudioWorkletStreamer.primeDone)
+      await this.diskStreaming.prime(offset);
     return this;
   }
 
@@ -99,7 +98,7 @@ class AudioWorkletStreamer {
    */
 
   stream(offset) {
-    if(!AudioWorkletStreamer.streamDone) {
+    if (!AudioWorkletStreamer.streamDone) {
       this.startTime = this.ac.currentTime;
       this.diskStreaming.stream(offset);
     }

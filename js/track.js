@@ -31,7 +31,7 @@ class Track {
     }
 
     connectToInput(node) {
-        node.connect(this.audioWorkletNode);
+        //node.connect(this.audioWorkletNode);
     }
 
     connectToOutput(node) {

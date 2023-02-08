@@ -31,7 +31,6 @@ class AudioEngine {
         this.playbackMode = playbackMode;
 
         this.audioContext = new AudioContext();
-        this.audioContext.resume();
 
         console.log("audioContext.sampleRate: ", this.audioContext.sampleRate);
         console.log("audioContext.baseLatency: ", this.audioContext.baseLatency);
@@ -58,6 +57,7 @@ class AudioEngine {
             await this.audioContext.audioWorklet.addModule(url);
             this.masterGain = this.audioContext.createGain();
             this.masterGain.connect(this.audioContext.destination);
+            console.log("connect...");
         }
     }
 
@@ -74,6 +74,7 @@ class AudioEngine {
 
     async play() {
         this.streamCoordinator.stream(null);
+        this.audioContext.resume();
     }
 
     stop() {
